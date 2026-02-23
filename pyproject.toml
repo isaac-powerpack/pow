@@ -7,9 +7,6 @@ requires-python = ">=3.11,<3.12"
 dependencies = ["click>=8.1.7", "pow-cli", "toml>=0.10.2"]
 license = "Apache-2.0"
 
-[project.optional-dependencies]
-sim = ["isaacsim[all,extscache]==5.1.0"]
-
 [project.scripts]
 pow = "packages.cli:pow"
 
