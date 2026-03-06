@@ -28,7 +28,7 @@ def init_cmd():
     console.print(
         Panel.fit(
             "[bold cyan]🚀 Isaac Powerpack Initialization[/bold cyan]",
-            subtitle="[dim]Setting up your Isaac ROS & Sim environment[/dim]",
+            subtitle="[dim]Setting up your Isaac Sim environment[/dim]",
         )
     )
 
