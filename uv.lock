@@ -39,16 +39,6 @@ wheels = [
 name = "isaac-powerpack"
 version = "0.1.0a3"
 source = { virtual = "." }
-dependencies = [
-    { name = "click" },
-    { name = "pow-cli" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "click", specifier = ">=8.1.7" },
-    { name = "pow-cli", editable = "packages/pow-cli" },
-]
 
 [[package]]
 name = "pow-cli"
