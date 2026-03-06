@@ -15,15 +15,17 @@ from rich.progress import (
 from rich.prompt import Confirm
 from rich.table import Table
 
-from ..common.utils import console, get_global_dir_name
+from ..common.utils import console
+from ..core.manager import Manager
 
 
 @click.command(name="init")
 def init_cmd():
     """Initialize Isaac ROS project (Mockup with Rich)."""
-    global_dir_name = get_global_dir_name()
-    home = Path.home()
-    global_path = home / global_dir_name
+    manager = Manager()
+    config = manager.get_config_info()
+    global_dir_name = config["global_dir_name"]
+    global_path = config["global_path"]
 
     console.print(
         Panel.fit(
@@ -32,23 +34,45 @@ def init_cmd():
         )
     )
 
-    # Step 1: Config Info
+    # Step 1: Pow.toml Check
+    override_pow_toml = True
+    if Path("pow.toml").exists():
+        console.print(
+            f"\n[bold blue][1/8] 🔍 Check Existing Config: [/bold blue] [yellow]Found existing pow.toml[/yellow]"
+        )
+        override_pow_toml = Confirm.ask(
+            "   Do you want to override existing pow.toml and re-initialize?",
+            default=False,
+        )
+        if not override_pow_toml:
+            console.print("   [yellow]Proceeding with existing pow.toml.[/yellow]")
+            manager.read_config()
+            console.print("   [green]✔ Read existing pow.toml configuration.[/green]")
+        else:
+            console.print("   [green]Proceeding and will override pow.toml.[/green]")
+    else:
+        console.print(
+            f"\n[bold blue][1/8] 🔍 Check Existing Config [/bold blue] No existing pow.toml found. Proceeding..."
+        )
+
+    # Step 2: Display global dir name
     console.print(
-        f"\n[bold blue][1/8] 🔧 Config:[/bold blue] Using global directory [bold green]'{global_dir_name}'[/bold green]"
+        f"[bold blue][2/8] 🔧 Config:[/bold blue] Using global directory [bold green]'{global_dir_name}'[/bold green]"
     )
 
-    # Step 2: Global Folder
+    # Step 3: Global Folder
     console.print(
-        f"[bold blue][2/8] 📂 Global Folder:[/bold blue] Preparing [dim]{global_path}[/dim]..."
+        f"[bold blue][3/8] 📂 Global Folder:[/bold blue] Preparing [dim]{global_path}[/dim]..."
     )
-    subfolders = ["app", "modules", "projects", "sim-ros"]
+    results = manager.create_global_folder()
     table = Table(show_header=False, box=None, padding=(0, 2))
-    for sub in subfolders:
-        table.add_row(f"[green]✔[/green] Created", f"{global_dir_name}/{sub}")
+    for res in results:
+        status_color = "green" if res["status"] == "Created" else "yellow"
+        table.add_row(f"[{status_color}]✔[/{status_color}] {res['status']}", res["path"])
     console.print(table)
 
-    # Step 3: Isaac Sim App (Animated Mockup)
-    console.print(f"[bold blue][3/8] 📦 Isaac Sim App:[/bold blue] Downloading Isaac Sim 5.1.0...")
+    # Step 4: Isaac Sim App (Animated Mockup)
+    console.print(f"[bold blue][4/8] 📦 Isaac Sim App:[/bold blue] Downloading Isaac Sim 5.1.0...")
     with Progress(
         TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
         BarColumn(bar_width=None),
@@ -68,33 +92,17 @@ def init_cmd():
             progress.update(task, completed=i, speed=speed)
 
     console.print(
-        f"   [green]✔[/green] Extracting to {global_dir_name}/apps/5.1.0... (Simulated)"
+        f"   [green]✔[/green] Extracting to {global_dir_name}/isaacsim/5.1.0... (Simulated)"
     )
     time.sleep(1)
 
-    # Step 4: Optimization
+    # Step 5: Optimization
     console.print(
-        f"[bold blue][4/8] ⚡ Optimization:[/bold blue] Applying Isaac Sim fixes..."
+        f"[bold blue][5/8] ⚡ Optimization:[/bold blue] Applying Isaac Sim fixes..."
     )
     with console.status("Patching isaacsim.asset.browser cache..."):
         time.sleep(1)
         console.print("   [green]✔[/green] Cache patched.")
-
-    # Step 5: Conflict Check
-    if Path("pow.toml").exists():
-        console.print(
-            f"[bold blue][5/8] ⚠️ Conflict Check:[/bold blue] [yellow]Found existing pow.toml[/yellow]"
-        )
-        if not Confirm.ask(
-            "   Do you want to override existing pow.toml and re-initialize?",
-            default=False,
-        ):
-            console.print("\n[yellow]Skipping initialization of pow.toml.[/yellow]")
-            return
-    else:
-        console.print(
-            f"[bold blue][5/8] ⚠️ Conflict Check:[/bold blue] No existing pow.toml found. Proceeding..."
-        )
 
     # Step 6: ROS Integration
     console.print(f"[bold blue][6/8] 🤖 ROS Integration:[/bold blue]")
@@ -131,7 +139,10 @@ def init_cmd():
 
     # Step 8: Finalizing
     console.print(f"[bold blue][8/8] ✅ Finalizing:[/bold blue] Generating configuration...")
-    console.print("   [green]✔[/green] Created pow.toml (from template)")
+    if override_pow_toml:
+        console.print("   [green]✔[/green] Created pow.toml (from template)")
+    else:
+        console.print("   [green]✔[/green] Kept existing pow.toml")
 
     console.print(
         Panel(
@@ -139,3 +150,4 @@ def init_cmd():
             border_style="green",
         )
     )
+

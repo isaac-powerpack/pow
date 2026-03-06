@@ -28,10 +28,20 @@ class TestCliInit:
 
     def test_init_cmd_step_1_output(self):
         runner = CliRunner()
-        # Mock time.sleep to speed up tests
-        with patch("time.sleep"):
-            # We pass 'n' and 'n' to avoid proceeding past conflicts and ROS integration, just to test step 1
-            result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"}) 
-            assert result.exit_code == 0
-            assert "[1/8] 🔧 Config:" in result.output
-            assert "Using global directory" in result.output
+        # Mock create_global_folder to avoid side effects
+        with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=[]):
+            with patch("time.sleep"):
+                result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"}) 
+                assert result.exit_code == 0
+                assert "[1/8] 🔧 Config:" in result.output
+                assert "Using global directory" in result.output
+
+    def test_init_cmd_rejects_existing_global_folder(self):
+        runner = CliRunner()
+        # Mock create_global_folder to raise FileExistsError
+        with patch("pow_cli.core.manager.Manager.create_global_folder", 
+                   side_effect=FileExistsError("Global directory '/mock/path' already exists.")):
+            result = runner.invoke(init_cmd, env={"NO_COLOR": "1", "TERM": "dumb"})
+            assert "Error: Global directory" in result.output
+            assert "already exists" in result.output
+            assert "Initialization aborted" in result.output
