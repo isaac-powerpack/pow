@@ -1,12 +1,10 @@
 [sim]
 version = "5.1.0"
-# add paths to additional extension folders
 ext_folders = []
 
 [sim.ros]
 enable_ros = true
 isaacsim_ros_ws = "~/.pow/IsaacSim-ros_workspaces"
-# support: humble, jazzy
 ros_distro = "humble"
 
 [[sim.profiles]]

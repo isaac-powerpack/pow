@@ -4,7 +4,7 @@ version = "0.1.0a3"
 description = "Command line interface for Isaac Powerpack"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["click>=8.1.7", "toml>=0.10.2"]
+dependencies = ["click>=8.1.7"]
 license = "Apache-2.0"
 authors = [
     { name = "Titiwat Munintravong" },
@@ -12,7 +12,7 @@ authors = [
 ]
 
 [project.scripts]
-pow = "pow_cli.main:pow"
+pow = "pow_cli.main:main"
 
 [build-system]
 requires = ["hatchling"]
