@@ -13,7 +13,9 @@ def get_global_dir_name():
         with open(pyproject_path, "rb") as f:
             try:
                 data = tomllib.load(f)
-                return data.get("tool", {}).get("pow-cli", {}).get("global_dir_name", ".pow")
+                val = data.get("tool", {}).get("pow-cli", {}).get("global_dir_name")
+                if val:
+                    return val
             except Exception:
                 pass
     return ".pow"

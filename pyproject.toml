@@ -12,3 +12,11 @@ url = "https://pypi.nvidia.com/"
 
 [tool.uv.workspace]
 members = ["packages/pow-cli"]
+
+[dependency-groups]
+dev = ["pytest>=9.0.2", "pytest-mock>=3.15.1", "PyYAML>=6.0.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["packages"]
+addopts = "-p no:launch_testing -p no:launch_ros"
+markers = ["cli: marks tests as CLI tests"]
