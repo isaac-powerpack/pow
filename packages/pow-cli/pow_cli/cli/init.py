@@ -34,11 +34,22 @@ def init_cmd():
         )
     )
 
-    # Step 1: Pow.toml Check
+    # Step 1: Config
+    if not Path("pyproject.toml").exists():
+        console.print(
+            "\n[bold red][1/8] ❌ Error:[/bold red] pyproject.toml not found. Please run this command in a valid project directory."
+        )
+        return
+
+    console.print(
+        f"\n[bold blue][1/8] 🔧 Config:[/bold blue] Using global directory [bold green]'{global_dir_name}'[/bold green]"
+    )
+
+    # Step 2: Pow.toml Check
     override_pow_toml = True
     if Path("pow.toml").exists():
         console.print(
-            f"\n[bold blue][1/8] 🔍 Check Existing Config: [/bold blue] [yellow]Found existing pow.toml[/yellow]"
+            "[bold blue][2/8] 🔍 Check Existing Config: [/bold blue] [yellow]Found existing pow.toml[/yellow]"
         )
         override_pow_toml = Confirm.ask(
             "   Do you want to override existing pow.toml and re-initialize?",
@@ -52,24 +63,28 @@ def init_cmd():
             console.print("   [green]Proceeding and will override pow.toml.[/green]")
     else:
         console.print(
-            f"\n[bold blue][1/8] 🔍 Check Existing Config [/bold blue] No existing pow.toml found. Proceeding..."
+            "[bold blue][2/8] 🔍 Check Existing Config [/bold blue] No existing pow.toml found. Proceeding..."
         )
-
-    # Step 2: Display global dir name
-    console.print(
-        f"[bold blue][2/8] 🔧 Config:[/bold blue] Using global directory [bold green]'{global_dir_name}'[/bold green]"
-    )
 
     # Step 3: Global Folder
     console.print(
         f"[bold blue][3/8] 📂 Global Folder:[/bold blue] Preparing [dim]{global_path}[/dim]..."
     )
-    results = manager.create_global_folder()
-    table = Table(show_header=False, box=None, padding=(0, 2))
-    for res in results:
-        status_color = "green" if res["status"] == "Created" else "yellow"
-        table.add_row(f"[{status_color}]✔[/{status_color}] {res['status']}", res["path"])
-    console.print(table)
+    init_data = manager.create_global_folder()
+    
+    if init_data["global_existed"]:
+        console.print(f"   [yellow]✔[/yellow] Global directory [dim]{global_path}[/dim] already exists. [dim]Skipping global folder creation.[/dim]")
+    else:
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        for res in init_data["results"]:
+            if res["status"] == "Created":
+                status_str = "[green]✔ Created[/green]"
+            elif res["status"] == "Existed":
+                status_str = "[yellow]✔ Existed[/yellow]"
+            else:  # Skipped
+                status_str = "[dim blue]⊖ Skipped[/dim blue]"
+            table.add_row(status_str, res["path"])
+        console.print(table)
 
     # Step 4: Isaac Sim App (Animated Mockup)
     console.print(f"[bold blue][4/8] 📦 Isaac Sim App:[/bold blue] Downloading Isaac Sim 5.1.0...")

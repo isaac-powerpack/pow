@@ -29,19 +29,30 @@ class TestCliInit:
     def test_init_cmd_step_1_output(self):
         runner = CliRunner()
         # Mock create_global_folder to avoid side effects
-        with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=[]):
+        mock_data = {"global_existed": False, "results": []}
+        with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_data):
             with patch("time.sleep"):
                 result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"}) 
                 assert result.exit_code == 0
                 assert "[1/8] 🔧 Config:" in result.output
                 assert "Using global directory" in result.output
 
-    def test_init_cmd_rejects_existing_global_folder(self):
+    def test_init_cmd_missing_pyproject_toml(self):
         runner = CliRunner()
-        # Mock create_global_folder to raise FileExistsError
-        with patch("pow_cli.core.manager.Manager.create_global_folder", 
-                   side_effect=FileExistsError("Global directory '/mock/path' already exists.")):
+        with patch("pathlib.Path.exists", return_value=False):
             result = runner.invoke(init_cmd, env={"NO_COLOR": "1", "TERM": "dumb"})
-            assert "Error: Global directory" in result.output
-            assert "already exists" in result.output
-            assert "Initialization aborted" in result.output
+            assert "pyproject.toml not found" in result.output
+            assert result.exit_code == 0
+
+    def test_init_cmd_accepts_existing_global_folder(self):
+        runner = CliRunner()
+        # Mock create_global_folder to return 'global_existed=True'
+        mock_data = {
+            "global_existed": True,
+            "results": [{"path": ".pow/isaacsim", "status": "Existed"}]
+        }
+        with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_data):
+            with patch("time.sleep"):
+                result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
+                assert result.exit_code == 0
+                assert "already exists" in result.output

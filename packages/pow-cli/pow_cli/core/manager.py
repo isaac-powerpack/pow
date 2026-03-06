@@ -23,18 +23,33 @@ class Manager:
         """Create the global directories and return the created paths with status."""
         subfolders = ["isaacsim", "modules", "projects", "sim-ros"]
         
-        self.global_path.mkdir(parents=True, exist_ok=True)
+        global_exists = self.global_path.exists()
+        if not global_exists:
+            self.global_path.mkdir(parents=True)
+            
         results = []
         for sub in subfolders:
             sub_path = self.global_path / sub
             existed = sub_path.exists()
-            sub_path.mkdir(parents=True, exist_ok=True)
-            results.append({
-                "path": f"{self.global_dir_name}/{sub}",
-                "status": "Existed" if existed else "Created"
-            })
             
-        return results
+            if global_exists:
+                # Skip creation if global folder already exists
+                results.append({
+                    "path": f"{self.global_dir_name}/{sub}",
+                    "status": "Existed" if existed else "Skipped"
+                })
+            else:
+                # Create if global folder is new
+                sub_path.mkdir(parents=True, exist_ok=True)
+                results.append({
+                    "path": f"{self.global_dir_name}/{sub}",
+                    "status": "Created"
+                })
+            
+        return {
+            "global_existed": global_exists,
+            "results": results
+        }
 
     def read_config(self):
         """Read configuration from an existing pow.toml file."""
