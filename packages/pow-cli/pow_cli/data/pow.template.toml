@@ -1,0 +1,20 @@
+[sim]
+version = "5.1.0"
+ext_folders = []
+cpu_performance_mode = false
+headless = false
+exts = []
+raw_args = ["--/renderer/raytracingMotion/enabled=false"]
+
+[ros]
+enable_ros = true
+isaacsim_ros_ws = ""
+ros_distro = "humble"
+
+[[profiles]]
+name = "dev"
+
+
+
+
+
