@@ -68,6 +68,24 @@ class Manager:
                     print(f"Error reading pow.toml: {e}")
         return {}
     
+    def fix_asset_browser_cache(self, isaacsim_path) -> bool:
+        """Fix the Isaac Sim asset browser cache issue."""
+        import json
+        isaacsim_path = Path(isaacsim_path)
+        cache_path = (
+            isaacsim_path
+            / "exts"
+            / "isaacsim.asset.browser"
+            / "cache"
+            / "isaacsim.asset.browser.cache.json"
+        )
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        if not cache_path.exists():
+            with open(cache_path, "w") as f:
+                json.dump({}, f, indent=4)
+            return True
+        return False
+
     def download_isaacsim(self, progress_callback=None, status_callback=None, mock=False):
         """Download and install Isaac Sim 5.1.0."""
         # 1. Architecture Check

@@ -31,8 +31,9 @@ class TestCliInit:
         # Mock create_global_folder to avoid side effects
         mock_data = {"global_existed": False, "results": []}
         with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_data):
-            with patch("time.sleep"):
-                result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"}) 
+            with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
+                with patch("time.sleep"):
+                    result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"}) 
                 assert result.exit_code == 0
                 assert "[1/8] 🔧 Config:" in result.output
                 assert "Using global directory" in result.output
@@ -52,7 +53,30 @@ class TestCliInit:
             "results": [{"path": ".pow/isaacsim", "status": "Existed"}]
         }
         with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_data):
-            with patch("time.sleep"):
-                result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
-                assert result.exit_code == 0
+            with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
+                with patch("time.sleep"):
+                    result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
+                    assert result.exit_code == 0
                 assert "already exists" in result.output
+
+    def test_init_cmd_asset_browser_fix_output(self):
+        runner = CliRunner()
+        mock_global_data = {"global_existed": True, "results": []}
+        # Mock fix_asset_browser_cache to return True (fixed)
+        with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_global_data):
+            with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
+                with patch("pow_cli.core.manager.Manager.fix_asset_browser_cache", return_value=True):
+                    with patch("time.sleep"):
+                        result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
+                        assert "Created missing cache file." in result.output
+
+    def test_init_cmd_asset_browser_already_fixed_output(self):
+        runner = CliRunner()
+        mock_global_data = {"global_existed": True, "results": []}
+        # Mock fix_asset_browser_cache to return False (already exists)
+        with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_global_data):
+            with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
+                with patch("pow_cli.core.manager.Manager.fix_asset_browser_cache", return_value=False):
+                    with patch("time.sleep"):
+                        result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
+                        assert "Cache file already exists." in result.output

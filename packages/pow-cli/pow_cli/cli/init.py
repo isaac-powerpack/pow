@@ -181,9 +181,12 @@ def init_cmd():
     console.print(
         f"[bold blue][5/8] ⚡ Optimization:[/bold blue] Applying Isaac Sim fixes..."
     )
-    with console.status("Patching isaacsim.asset.browser cache..."):
-        time.sleep(1)
-        console.print("   [green]✔[/green] Cache patched.")
+    with console.status("Fixing isaacsim.asset.browser cache file missing..."):
+        fixed = manager.fix_asset_browser_cache(_download_result["path"])
+        if fixed:
+            console.print("   [green]✔[/green] Created missing cache file.")
+        else:
+            console.print("   [yellow]✔[/yellow] Cache file already exists.")
 
     # Step 6: ROS Integration
     console.print(f"[bold blue][6/8] 🤖 ROS Integration:[/bold blue]")
