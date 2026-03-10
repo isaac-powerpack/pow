@@ -30,7 +30,7 @@ def init_cmd():
     console.print(
         Panel.fit(
             "[bold cyan]🚀 Isaac Powerpack Initialization[/bold cyan]",
-            subtitle="[dim]Setting up your Isaac Sim environment[/dim]",
+            subtitle="[dim]Setting up Isaac Sim environment[/dim]",
         )
     )
 
@@ -86,30 +86,96 @@ def init_cmd():
             table.add_row(status_str, res["path"])
         console.print(table)
 
-    # Step 4: Isaac Sim App (Animated Mockup)
+    # Step 4: Isaac Sim App
     console.print(f"[bold blue][4/8] 📦 Isaac Sim App:[/bold blue] Downloading Isaac Sim 5.1.0...")
+    _download_result = None
+    _download_error = None
+
     with Progress(
         TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
-        BarColumn(bar_width=None),
+        BarColumn(bar_width=40),
         "[progress.percentage]{task.percentage:>3.1f}%",
         "•",
-        TaskProgressColumn(),
-        "•",
         TextColumn("[bold cyan]{task.fields[speed]}"),
+        console=console,
+        refresh_per_second=10,
     ) as progress:
-        task = progress.add_task(
-            "download", filename="isaac-sim-5.1.0.zip", total=100, speed="0 MB/s"
+        download_task = progress.add_task(
+            "download", filename="isaac-sim-5.1.0.zip", total=None, speed="0 MB/s"
+        )
+        extract_task = progress.add_task(
+            "extract", filename="", total=None, speed=" ", visible=False
         )
 
-        for i in range(101):
-            time.sleep(0.05)
-            speed = f"{i/10 + 20:.1f} MB/s"
-            progress.update(task, completed=i, speed=speed)
+        last_completed = 0
+        last_time = time.time()
+        last_update_time = 0.0
+        current_phase = "download"
 
-    console.print(
-        f"   [green]✔[/green] Extracting to {global_dir_name}/isaacsim/5.1.0... (Simulated)"
-    )
-    time.sleep(1)
+        def progress_callback(completed, total):
+            nonlocal last_completed, last_time, last_update_time
+            if not total:
+                return
+
+            current_time = time.time()
+            last_update_time = current_time
+
+            if current_phase == "download":
+                progress.update(download_task, total=total, completed=completed)
+                # Calculate download speed
+                elapsed = current_time - last_time
+                if elapsed >= 0.5:
+                    downloaded_since_last = completed - last_completed
+                    speed_mb = (downloaded_since_last / (1024 * 1024)) / elapsed
+                    progress.update(download_task, speed=f"{speed_mb:.1f} MB/s")
+                    last_completed = completed
+                    last_time = current_time
+            elif current_phase == "extract":
+                progress.update(extract_task, total=total, completed=completed)
+
+        def status_callback(status):
+            nonlocal current_phase, last_completed, last_time, last_update_time
+            if status == "Downloading":
+                current_phase = "download"
+            elif status == "Extracting":
+                current_phase = "extract"
+                # Hide download task, show extract task
+                progress.update(download_task, visible=False)
+                progress.update(
+                    extract_task,
+                    filename="isaac-sim-5.1.0 [yellow](Extracting...)[/yellow]",
+                    speed=" ",
+                    completed=0,
+                    total=None,
+                    visible=True,
+                )
+                last_completed = 0
+                last_time = time.time()
+                last_update_time = 0.0
+            elif status == "Extracted":
+                progress.update(
+                    extract_task,
+                    filename="isaac-sim-5.1.0 [green](Extracted → 5.1.0)[/green]",
+                )
+                time.sleep(1)
+
+        try:
+            _download_result = manager.download_isaacsim(
+                progress_callback=progress_callback,
+                status_callback=status_callback
+            )
+        except Exception as e:
+            _download_error = e
+
+    # Print result/error AFTER Progress context has closed
+    if _download_error:
+        console.print(f"   [bold red]❌ Error:[/bold red] {_download_error}")
+        return
+    elif _download_result["status"] == "Already installed":
+        console.print(f"   [yellow]✔[/yellow] Isaac Sim 5.1.0 is already installed at [dim]{_download_result['path']}[/dim]")
+    else:
+        console.print(f"   [green]✔[/green] Downloaded and extracted to [dim]{_download_result['path']}[/dim]")
+
 
     # Step 5: Optimization
     console.print(
