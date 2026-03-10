@@ -1,57 +1,69 @@
-# Operating System
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# IDEs and Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Antigravity
-.antigravity/
-.agents/
-
-# Python / Environment / UV
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.eggs/
-*.egg-info/
-*.egg/
+*.pyd
+
+# Virtual Environments
 .venv/
 venv/
 env/
 .Python
+
+# Distribution / Packaging
 build/
 dist/
+*.egg-info/
+*.egg
 *.whl
+.eggs/
 
-# Ruff
-.ruff_cache/
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Coverage and Testing
-htmlcov/
+# Testing & Coverage
+.pytest_cache/
 .tox/
 .nox/
 .coverage
 .coverage.*
-nosetests.xml
+htmlcov/
 coverage.xml
+nosetests.xml
 *.cover
-.pytest_cache/
-.nyc_output/
-coverage/
+
+# Linting & Formatting
+.ruff_cache/
+.mypy_cache/
+
+# Environment Variables
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Isaac Sim / Omniverse
+_isaac_sim/
+_build/
+*.usd.tmp
+*.usda.tmp
+
+# Isaac Powerpack
+.pow
+__pycache__/
+.vscode/browse.vc.db*
+**/.assets
+.modules

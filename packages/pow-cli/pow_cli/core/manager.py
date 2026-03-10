@@ -275,3 +275,30 @@ class Manager:
                     zip_path.unlink()
 
         return {"status": "Downloaded and installed", "path": str(target_folder)}
+
+    def setup_project_structure(self, local_folders: list) -> dict:
+        """Create project folders and .gitignore from template."""
+        results = []
+        
+        # 1. Create folders
+        for folder in local_folders:
+            path = Path(folder)
+            if not path.exists():
+                path.mkdir(parents=True, exist_ok=True)
+                results.append({"path": folder, "status": "Created"})
+            else:
+                results.append({"path": folder, "status": "Existed"})
+
+        # 2. Copy .gitignore
+        template_path = Path(__file__).parent.parent / "data" / "gitignore.template"
+        gitignore_path = Path(".gitignore")
+        
+        if gitignore_path.exists():
+            results.append({"path": ".gitignore", "status": "Existed"})
+        elif template_path.exists():
+            shutil.copy(template_path, gitignore_path)
+            results.append({"path": ".gitignore", "status": "Created from template"})
+        else:
+            results.append({"path": ".gitignore", "status": "Template not found"})
+
+        return {"results": results}

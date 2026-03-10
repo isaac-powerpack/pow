@@ -236,20 +236,33 @@ def init_cmd():
         f"[bold blue][7/8] 🏗️ Project Structure:[/bold blue] Creating local folders..."
     )
     local_folders = ["exts", "scripts", ".modules", ".assets", "standalone"]
+    
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         transient=True,
     ) as progress:
         task = progress.add_task(
-            description="Setting up project folders...", total=len(local_folders)
+            description="Setting up project folders...", total=len(local_folders) + 1
         )
-        for folder in local_folders:
-            time.sleep(0.3)
-            progress.update(task, advance=1, description=f"Created ./{folder}")
-
+        
+        # Real structure setup
+        struct_data = manager.setup_project_structure(local_folders)
+        
+        for res in struct_data["results"]:
+            progress.update(task, advance=1, description=f"Setting up {res['path']}...")
+            time.sleep(0.1) # Brief delay for visibility in mockup feel
+            
+    # Success feedback
     console.print("   [green]✔[/green] Local folders created.")
-    console.print("   [green]✔[/green] Created .gitignore (from template)")
+    
+    gitignore_res = next((r for r in struct_data["results"] if r["path"] == ".gitignore"), None)
+    if gitignore_res and gitignore_res["status"] == "Created from template":
+        console.print("   [green]✔[/green] Created .gitignore (from template)")
+    elif gitignore_res and gitignore_res["status"] == "Template not found":
+        console.print("   [yellow]⚠[/yellow] .gitignore template not found. [dim]Skipped.[/dim]")
+    else:
+        console.print("   [yellow]✔[/yellow] .gitignore already exists. [dim]Kept existing.[/dim]")
 
     # Step 8: Finalizing
     console.print(f"[bold blue][8/8] ✅ Finalizing:[/bold blue] Generating configuration...")
