@@ -191,15 +191,45 @@ def init_cmd():
     # Step 6: ROS Integration
     console.print(f"[bold blue][6/8] 🤖 ROS Integration:[/bold blue]")
     if Confirm.ask("   Enable ROS integration?", default=True):
-        with console.status("[bold green]Cloning Isaac ROS workspace..."):
-            time.sleep(1.5)  # Simulated delay
-            console.print(
-                f"   [green]✔[/green] Cloned IsaacSim-ros_workspaces to {global_dir_name}/sim-ros"
-            )
-
-        with console.status("[bold green]Building Isaac ROS workspace in Docker..."):
-            time.sleep(2)  # Simulated delay
-            console.print("   [green]✔[/green] Build complete.")
+        
+        status_msg = "Preparing ROS workspace..."
+        _ros_cloned = False
+        _ros_already_built = False
+        with console.status(status_msg) as status:
+            def ros_status_callback(state):
+                nonlocal _ros_cloned, _ros_already_built
+                if state == "cloning":
+                    _ros_cloned = True
+                    status.update("[bold green]Cloning Isaac ROS workspace...")
+                elif state == "existed":
+                    status.update("[bold yellow]Isaac ROS workspace already exists. Checking build...")
+                elif state == "built":
+                    _ros_already_built = True
+                    status.update("[bold yellow]Docker build already complete.")
+                elif state == "building":
+                    status.update("[bold green]Docker build: Isaac ROS workspace...")
+                elif state.startswith("building:"):
+                    line = state[len("building:"):]
+                    status.update(f"[bold green]Docker build:[/bold green] [dim]{line[:80]}[/dim]")
+            
+            try:
+                ros_res = manager.setup_ros_workspace(status_callback=ros_status_callback)
+                
+                # Report outcomes
+                if _ros_cloned:
+                     console.print(f"   [green]✔[/green] Cloned IsaacSim-ros_workspaces to [dim]{global_dir_name}/sim-ros/IsaacSim-ros_workspaces[/dim]")
+                else:
+                     console.print(f"   [yellow]✔[/yellow] IsaacSim-ros_workspaces already available in [dim]{global_dir_name}/sim-ros/IsaacSim-ros_workspaces[/dim]")
+                
+                if _ros_already_built:
+                     console.print(f"   [yellow]✔[/yellow] Docker build already complete for ROS [bold]{ros_res['ros_distro']}[/bold] (Ubuntu {ros_res['ubuntu_version']}).")
+                else:
+                     console.print(f"   [green]✔[/green] Docker build complete for ROS [bold]{ros_res['ros_distro']}[/bold] (Ubuntu {ros_res['ubuntu_version']}).")
+                
+            except Exception as e:
+                console.print(f"   [bold red]❌ ROS Setup Error:[/bold red] {e}")
+    else:
+        console.print("   [yellow]⊖[/yellow] Skipping ROS integration.")
 
     # Step 7: Project Structure
     console.print(

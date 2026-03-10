@@ -86,6 +86,85 @@ class Manager:
             return True
         return False
 
+    def setup_ros_workspace(self, status_callback=None) -> dict:
+        """Setup ROS workspace for Isaac Sim project in .pow/sim-ros."""
+        import distro
+        import subprocess
+        
+        ros_workspace_path = self.global_path / "sim-ros"
+        clone_path = ros_workspace_path / "IsaacSim-ros_workspaces"
+        
+        # Determine Ubuntu version and corresponding ROS distro
+        try:
+            distro_version = distro.version()
+        except Exception:
+            distro_version = "22.04" # Default fallback
+            
+        if distro_version == "24.04":
+            ros_distro = "jazzy"
+            ubuntu_version = "24.04"
+        else:
+            ros_distro = "humble"
+            ubuntu_version = "22.04"
+
+        # Clone workspace if not already cloned (check .git to distinguish from empty dir)
+        if not (clone_path / ".git").exists():
+            if status_callback:
+                status_callback("cloning")
+            subprocess.run(
+                [
+                    "git", "clone", "-b", "IsaacSim-5.1.0", "--quiet", 
+                    "https://github.com/isaac-sim/IsaacSim-ros_workspaces.git", 
+                    str(clone_path)
+                ],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            if status_callback:
+                status_callback("existed")
+
+        # Build ROS workspace (skip if Docker image already exists)
+        ubuntu_major = ubuntu_version.split(".")[0]  # "22.04" -> "22"
+        docker_image = f"isaac_sim_ros:ubuntu_{ubuntu_major}_{ros_distro}"
+        
+        # Check if Docker image already exists
+        image_exists = subprocess.run(
+            ["docker", "image", "inspect", docker_image],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode == 0
+
+        if image_exists:
+            if status_callback:
+                status_callback("built")
+        else:
+            # Run Docker build (quiet, but stream output lines for progress)
+            if status_callback:
+                status_callback("building")
+            process = subprocess.Popen(
+                ["./build_ros.sh", "-d", ros_distro, "-v", ubuntu_version], 
+                cwd=clone_path, 
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            for line in process.stdout:
+                stripped = line.strip()
+                if stripped and status_callback:
+                    status_callback(f"building:{stripped}")
+            process.wait()
+            if process.returncode != 0:
+                raise RuntimeError(f"ROS build failed with exit code {process.returncode}")
+
+        return {
+            "status": "success",
+            "ros_distro": ros_distro,
+            "ubuntu_version": ubuntu_version,
+            "path": str(clone_path)
+        }
+
     def download_isaacsim(self, progress_callback=None, status_callback=None, mock=False):
         """Download and install Isaac Sim 5.1.0."""
         # 1. Architecture Check
