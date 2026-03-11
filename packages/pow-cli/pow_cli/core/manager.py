@@ -3,7 +3,6 @@
 import json
 import os
 import platform
-import re
 import shutil
 import subprocess
 import zipfile
@@ -11,6 +10,7 @@ import urllib.request
 from pathlib import Path
 
 import distro
+import tomlkit
 
 from .config import Config
 
@@ -224,7 +224,7 @@ class Manager:
         """Setup ROS workspace for Isaac Sim project in .pow/sim-ros."""
         ros_distro, ubuntu_version = self._detect_ros_distro()
 
-        clone_path = self.global_path / "sim-ros" / "IsaacSim-ros_workspaces"
+        clone_path = self.config.global_path / "sim-ros" / "IsaacSim-ros_workspaces"
 
         # Clone workspace if not already cloned
         if not (clone_path / ".git").exists():
@@ -449,14 +449,14 @@ class Manager:
     def _patch_pow_toml(self, pow_toml_path: Path, enable_ros: bool):
         """Patch values in pow.toml to reflect user choices made during init."""
         content = pow_toml_path.read_text()
-        ros_value = "true" if enable_ros else "false"
+        
+        doc = tomlkit.parse(content)
         
         # We ensure the top-level [sim] section is present or patch it.
         # Since the template already has [sim], we just update enable_ros within it.
-        content = re.sub(
-            r"(?<=^enable_ros\s*=\s*)(true|false)",
-            ros_value,
-            content,
-            flags=re.MULTILINE,
-        )
-        pow_toml_path.write_text(content)
+        if "sim" in doc and isinstance(doc["sim"], dict):
+            doc["sim"]["enable_ros"] = enable_ros
+        else:
+            doc["sim"] = {"enable_ros": enable_ros}
+            
+        pow_toml_path.write_text(tomlkit.dumps(doc))

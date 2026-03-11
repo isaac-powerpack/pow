@@ -11,6 +11,7 @@ dependencies = [
     "packaging>=26.0",
     "rich",
     "setuptools>=82.0.1",
+    "tomlkit>=0.14.0",
 ]
 license = "Apache-2.0"
 authors = [
