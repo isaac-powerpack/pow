@@ -1,4 +1,5 @@
 import tomllib
+import distro
 from pathlib import Path
 from typing import Any, Optional
 
@@ -44,18 +45,30 @@ class Config:
             self._load_config(self._project_root)
 
     @staticmethod
-    def _read_global_dir_name() -> str:
+    def _read_global_dir_name(start_path: Optional[Path] = None) -> str:
         """Read global_dir_name from pyproject.toml or default to .pow"""
-        pyproject_path = Path.cwd() / "pyproject.toml"
-        if pyproject_path.exists():
-            with open(pyproject_path, "rb") as f:
-                try:
-                    data = tomllib.load(f)
-                    val = data.get("tool", {}).get("pow-cli", {}).get("global_dir_name")
-                    if val:
-                        return val
-                except Exception:
-                    pass
+        if start_path is None:
+            start_path = Path.cwd()
+
+        current = start_path.resolve()
+
+        while True:
+            pyproject_path = current / "pyproject.toml"
+            if pyproject_path.exists():
+                with open(pyproject_path, "rb") as f:
+                    try:
+                        data = tomllib.load(f)
+                        val = data.get("tool", {}).get("pow-cli", {}).get("global_dir_name")
+                        if val:
+                            return val
+                    except Exception:
+                        pass
+                break # Found pyproject.toml but no valid global_dir_name, use default
+            
+            if current == current.parent:
+                break
+            current = current.parent
+
         return ".pow"
 
     def _find_project_root(self, start_path: Optional[Path] = None) -> Optional[Path]:
@@ -100,6 +113,27 @@ class Config:
     def global_path(self) -> Path:
         """Absolute path to the global pow directory (e.g. ~/.pow)."""
         return self._global_path
+
+    @property
+    def ros_ws_path(self) -> Path:
+        """Absolute path to the ROS workspaces directory."""
+        return self.global_path / "sim-ros" / "IsaacSim-ros_workspaces"
+
+    @property
+    def ros_distro(self) -> str:
+        """Get the ROS distribution for the current OS version."""
+        return self.ROS_DISTRO_MAP.get(self.ubuntu_version, "humble")
+
+    @property
+    def ubuntu_version(self) -> str:
+        """Get the current Ubuntu version or fallback to 22.04."""
+        try:
+            v = distro.version()
+            if v in self.ROS_DISTRO_MAP:
+                return v
+        except Exception:
+            pass
+        return "22.04"
 
     # ── Project config properties ────────────────────────────────────────────
 

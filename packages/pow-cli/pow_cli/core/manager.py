@@ -64,18 +64,6 @@ class Manager:
         except Exception as e:
             raise RuntimeError(f"Could not verify OS version using distro package: {e}")
 
-    @staticmethod
-    def _detect_ros_distro() -> tuple[str, str]:
-        """Return (ros_distro, ubuntu_version) based on current OS."""
-        try:
-            ubuntu_version = distro.version()
-        except Exception:
-            ubuntu_version = "22.04"  # safe fallback
-
-        if ubuntu_version not in Config.ROS_DISTRO_MAP:
-            ubuntu_version = "22.04"
-
-        return Config.ROS_DISTRO_MAP[ubuntu_version], ubuntu_version
 
     @staticmethod
     def _data_path(filename: str) -> Path:
@@ -177,9 +165,9 @@ class Manager:
 
     def setup_ros_workspace(self, status_callback=None) -> dict:
         """Setup ROS workspace for Isaac Sim project in .pow/sim-ros."""
-        ros_distro, ubuntu_version = self._detect_ros_distro()
-
-        clone_path = self.config.global_path / "sim-ros" / "IsaacSim-ros_workspaces"
+        ros_distro = self.config.ros_distro
+        ubuntu_version = self.config.ubuntu_version
+        clone_path = self.config.ros_ws_path
 
         # Clone workspace if not already cloned
         if not (clone_path / ".git").exists():
@@ -199,17 +187,12 @@ class Manager:
             if status_callback:
                 status_callback("existed")
 
-        # Build ROS workspace (skip if Docker image already exists)
+        # Build ROS workspace (skip if already built)
         ubuntu_major = ubuntu_version.split(".")[0]
         docker_image = f"isaac_sim_ros:ubuntu_{ubuntu_major}_{ros_distro}"
 
-        image_exists = subprocess.run(
-            ["docker", "image", "inspect", docker_image],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        ).returncode == 0
-
-        if image_exists:
+        distro_install_path = clone_path / "build_ws" / ros_distro / f"{ros_distro}_ws" / "install"
+        if distro_install_path.exists():
             if status_callback:
                 status_callback("built")
         else:
@@ -227,8 +210,23 @@ class Manager:
                 if stripped and status_callback:
                     status_callback(f"building:{stripped}")
             process.wait()
+
+            # Fix build_ros.sh leaving dangling containers from `docker create --rm`
+            cmd = [
+                "docker", "ps", "-a", "-q",
+                "--filter", f"ancestor={docker_image}",
+                "--filter", "status=exited",
+                "--filter", "status=created" # Include created but never started
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            container_ids = result.stdout.strip().split()
+
+            if container_ids:
+                subprocess.run(["docker", "rm"] + container_ids)
+
             if process.returncode != 0:
                 raise RuntimeError(f"ROS build failed with exit code {process.returncode}")
+
 
         return {
             "status": "success",
@@ -393,6 +391,13 @@ class Manager:
                     progress_callback(total_files, total_files)
             if status_callback:
                 status_callback("Extracted")
+
+            # Run post_install.sh if it exists
+            post_install_script = target_folder / "post_install.sh"
+            if post_install_script.exists():
+                if status_callback:
+                    status_callback("Post-Install")
+                subprocess.run([str(post_install_script)], cwd=target_folder, check=True)
         except Exception:
             if target_folder.exists():
                 shutil.rmtree(target_folder)
