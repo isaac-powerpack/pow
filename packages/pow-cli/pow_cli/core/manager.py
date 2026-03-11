@@ -1,6 +1,7 @@
 """Manager core logic."""
 
 import platform
+import re
 import shutil
 import zipfile
 import urllib.request
@@ -302,3 +303,24 @@ class Manager:
             results.append({"path": ".gitignore", "status": "Template not found"})
 
         return {"results": results}
+
+    def create_pow_toml(self, override: bool = False, enable_ros: bool = False) -> dict:
+        """Copy pow.template.toml to pow.toml in the current working directory."""
+        template_path = Path(__file__).parent.parent / "data" / "pow.template.toml"
+        pow_toml_path = Path("pow.toml")
+
+        if pow_toml_path.exists() and not override:
+            return {"status": "Existed", "path": str(pow_toml_path)}
+
+        if not template_path.exists():
+            return {"status": "Template not found", "path": str(pow_toml_path)}
+
+        shutil.copy(template_path, pow_toml_path)
+
+        # Patch enable_ros flag based on user's ROS integration choice
+        content = pow_toml_path.read_text()
+        ros_value = "true" if enable_ros else "false"
+        content = re.sub(r"^enable_ros\s*=\s*(true|false)", f"enable_ros = {ros_value}", content, flags=re.MULTILINE)
+        pow_toml_path.write_text(content)
+
+        return {"status": "Created", "path": str(pow_toml_path)}

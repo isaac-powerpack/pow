@@ -190,7 +190,8 @@ def init_cmd():
 
     # Step 6: ROS Integration
     console.print(f"[bold blue][6/8] 🤖 ROS Integration:[/bold blue]")
-    if Confirm.ask("   Enable ROS integration?", default=True):
+    _ros_enabled = Confirm.ask("   Enable ROS integration?", default=True)
+    if _ros_enabled:
         
         status_msg = "Preparing ROS workspace..."
         _ros_cloned = False
@@ -266,10 +267,13 @@ def init_cmd():
 
     # Step 8: Finalizing
     console.print(f"[bold blue][8/8] ✅ Finalizing:[/bold blue] Generating configuration...")
-    if override_pow_toml:
+    pow_toml_result = manager.create_pow_toml(override=override_pow_toml, enable_ros=_ros_enabled)
+    if pow_toml_result["status"] == "Created":
         console.print("   [green]✔[/green] Created pow.toml (from template)")
+    elif pow_toml_result["status"] == "Existed":
+        console.print("   [yellow]✔[/yellow] Kept existing pow.toml")
     else:
-        console.print("   [green]✔[/green] Kept existing pow.toml")
+        console.print("   [yellow]⚠[/yellow] pow.toml template not found. [dim]Skipped.[/dim]")
 
     console.print(
         Panel(

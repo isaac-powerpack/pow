@@ -36,6 +36,10 @@ class TestCliInit:
             return_value={"results": []}
         )
         self.mock_read_config = mocker.patch("pow_cli.core.manager.Manager.read_config")
+        self.mock_create_pow_toml = mocker.patch(
+            "pow_cli.core.manager.Manager.create_pow_toml",
+            return_value={"status": "Created", "path": "pow.toml"}
+        )
         self.mock_sleep = mocker.patch("time.sleep")
         self.runner = CliRunner()
 
