@@ -93,5 +93,28 @@ def test_no_config_found(tmp_path, monkeypatch, reset_config_singleton):
     empty_dir.mkdir()
     monkeypatch.chdir(empty_dir)
     
+    config = Config()
+    # instantiation should succeed to allow access to global paths
+    assert config.global_dir_name == ".pow"
+
+    # but accessing project data should raise the error
     with pytest.raises(RuntimeError, match="Project not initialized: pow.toml not found"):
-        Config()
+        _ = config.data
+
+def test_global_dir_name_default(tmp_path, monkeypatch, reset_config_singleton):
+    """Test global_dir_name defaults to .pow when no pyproject.toml exists."""
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    monkeypatch.chdir(empty_dir)
+    config = Config()
+    assert config.global_dir_name == ".pow"
+
+def test_global_dir_name_custom(tmp_path, monkeypatch, reset_config_singleton):
+    """Test global_dir_name reads from pyproject.toml."""
+    root = tmp_path / "project"
+    root.mkdir()
+    pyproject = root / "pyproject.toml"
+    pyproject.write_text('[tool.pow-cli]\nglobal_dir_name = ".custom_pow"')
+    monkeypatch.chdir(root)
+    config = Config()
+    assert config.global_dir_name == ".custom_pow"

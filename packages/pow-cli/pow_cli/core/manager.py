@@ -6,7 +6,6 @@ import platform
 import re
 import shutil
 import subprocess
-import tomllib
 import zipfile
 import urllib.request
 from pathlib import Path
@@ -14,14 +13,6 @@ from pathlib import Path
 import distro
 
 from .config import Config
-from ..common.utils import get_global_dir_name
-
-
-_ISAACSIM_VERSION = "5.1.0"
-_ISAACSIM_FILENAME = f"isaac-sim-standalone-{_ISAACSIM_VERSION}-linux-x86_64.zip"
-_ISAACSIM_URL = f"https://download.isaacsim.omniverse.nvidia.com/{_ISAACSIM_FILENAME}"
-_SUPPORTED_UBUNTU_VERSIONS = ["22.04", "24.04"]
-_ROS_DISTRO_MAP = {"24.04": "jazzy", "22.04": "humble"}
 
 
 class Manager:
@@ -37,9 +28,6 @@ class Manager:
 
     def __init__(self):
         """Initialize the Manager with default paths."""
-        self.global_dir_name = get_global_dir_name()
-        self.home = Path.home()
-        self.global_path = self.home / self.global_dir_name
         self._config_instance = None
 
     # ── Internal helpers ──────────────────────────────────────────────────────
@@ -65,7 +53,7 @@ class Manager:
         try:
             distro_id = distro.id()
             distro_version = distro.version()
-            if distro_id != "ubuntu" or distro_version not in _SUPPORTED_UBUNTU_VERSIONS:
+            if distro_id != "ubuntu" or distro_version not in Config.SUPPORTED_UBUNTU_VERSIONS:
                 distro_name = distro.name()
                 raise RuntimeError(
                     f"Unsupported OS: {distro_name} {distro_version}. "
@@ -84,10 +72,10 @@ class Manager:
         except Exception:
             ubuntu_version = "22.04"  # safe fallback
 
-        if ubuntu_version not in _ROS_DISTRO_MAP:
+        if ubuntu_version not in Config.ROS_DISTRO_MAP:
             ubuntu_version = "22.04"
 
-        return _ROS_DISTRO_MAP[ubuntu_version], ubuntu_version
+        return Config.ROS_DISTRO_MAP[ubuntu_version], ubuntu_version
 
     @staticmethod
     def _data_path(filename: str) -> Path:
@@ -98,8 +86,8 @@ class Manager:
     def get_config_path(self):
         """Return global configuration information for Step 1."""
         return {
-            "global_dir_name": self.global_dir_name,
-            "global_path": self.global_path,
+            "global_dir_name": self.config.global_dir_name,
+            "global_path": self.config.global_path,
         }
 
     def get_config(self) -> Config:
@@ -113,7 +101,7 @@ class Manager:
         back to importing the ``isaacsim`` Python package. Returns None if
         Isaac Sim cannot be located.
         """
-        managed = self.global_path / "isaacsim" / _ISAACSIM_VERSION
+        managed = self.config.global_path / "isaacsim" / Config.ISAACSIM_VERSION
         if managed.is_dir():
             return managed
 
@@ -177,27 +165,29 @@ class Manager:
     def create_global_folder(self):
         """Create the global directories and return the created paths with status."""
         subfolders = ["isaacsim", "modules", "projects", "sim-ros"]
+        global_path = self.config.global_path
+        global_dir_name = self.config.global_dir_name
 
-        global_exists = self.global_path.exists()
+        global_exists = global_path.exists()
         if not global_exists:
-            self.global_path.mkdir(parents=True)
+            global_path.mkdir(parents=True)
 
         results = []
         for sub in subfolders:
-            sub_path = self.global_path / sub
+            sub_path = global_path / sub
             existed = sub_path.exists()
 
             if global_exists:
                 # Skip creation if global folder already exists
                 results.append({
-                    "path": f"{self.global_dir_name}/{sub}",
+                    "path": f"{global_dir_name}/{sub}",
                     "status": "Existed" if existed else "Skipped",
                 })
             else:
                 # Create sub-folder when global folder is freshly created
                 sub_path.mkdir(parents=True, exist_ok=True)
                 results.append({
-                    "path": f"{self.global_dir_name}/{sub}",
+                    "path": f"{global_dir_name}/{sub}",
                     "status": "Created",
                 })
 
@@ -296,10 +286,10 @@ class Manager:
         """Download and install Isaac Sim."""
         self._check_platform()
 
-        dest_dir = self.global_path / "isaacsim"
+        dest_dir = self.config.global_path / "isaacsim"
         dest_dir.mkdir(parents=True, exist_ok=True)
-        zip_path = dest_dir / _ISAACSIM_FILENAME
-        target_folder = dest_dir / _ISAACSIM_VERSION
+        zip_path = dest_dir / Config.ISAACSIM_FILENAME
+        target_folder = dest_dir / Config.ISAACSIM_VERSION
 
         if not mock and target_folder.exists():
             return {"status": "Already installed", "path": str(target_folder)}
@@ -406,7 +396,7 @@ class Manager:
                     progress_callback(blocknum * blocksize, totalsize)
 
             try:
-                urllib.request.urlretrieve(_ISAACSIM_URL, zip_path, reporthook)
+                urllib.request.urlretrieve(Config.ISAACSIM_URL, zip_path, reporthook)
             except Exception as e:
                 if zip_path.exists():
                     zip_path.unlink()
