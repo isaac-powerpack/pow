@@ -13,6 +13,7 @@ from pathlib import Path
 
 import distro
 
+from .config import Config
 from ..common.utils import get_global_dir_name
 
 
@@ -39,6 +40,7 @@ class Manager:
         self.global_dir_name = get_global_dir_name()
         self.home = Path.home()
         self.global_path = self.home / self.global_dir_name
+        self.config = Config()
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -198,16 +200,8 @@ class Manager:
         return {"global_existed": global_exists, "results": results}
 
     def read_config(self):
-        """Read configuration from an existing pow.toml file."""
-        pow_toml_path = Path("pow.toml")
-        if pow_toml_path.exists():
-            with open(pow_toml_path, "rb") as f:
-                try:
-                    self.config = tomllib.load(f)
-                    return self.config
-                except Exception as e:
-                    print(f"Error reading pow.toml: {e}")
-        return {}
+        """Read configuration from an existing pow.toml file using the Config singleton."""
+        return self.config.data
 
     def fix_asset_browser_cache(self, isaacsim_path) -> bool:
         """Fix the Isaac Sim asset browser cache issue."""
@@ -455,9 +449,12 @@ class Manager:
         """Patch values in pow.toml to reflect user choices made during init."""
         content = pow_toml_path.read_text()
         ros_value = "true" if enable_ros else "false"
+        
+        # We ensure the top-level [sim] section is present or patch it.
+        # Since the template already has [sim], we just update enable_ros within it.
         content = re.sub(
-            r"^enable_ros\s*=\s*(true|false)",
-            f"enable_ros = {ros_value}",
+            r"(?<=^enable_ros\s*=\s*)(true|false)",
+            ros_value,
             content,
             flags=re.MULTILINE,
         )
