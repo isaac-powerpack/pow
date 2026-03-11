@@ -7,10 +7,53 @@ import click
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm
+from rich.text import Text
 
 from ..common.utils import console
 from ..core.manager import Manager
 
+
+
+# ── Logo ──────────────────────────────────────────────────────────────────────
+def draw_logo():
+# A brighter, punchier neon green
+    NEON_GREEN = "#76ff7a" 
+    
+    # Refined font with better curves and proportions
+    font = {
+        'P': ["█████▄", "██▄▄██", "██▀▀▀ ", "██    "],
+        'O': ["▄████▄", "██  ██", "██  ██", "▀████▀"],
+        'W': ["██    ██", "██ ▄▄ ██", "████████", "▀██  ██▀"],
+        'E': ["██████", "██▄▄▄ ", "██▀▀▀ ", "██████"],
+        'R': ["█████▄", "██▄▄██", "██▀██ ", "██  ██"],
+        'A': ["▄████▄", "██▄▄██", "██▀▀██", "██  ██"],
+        'C': ["▄████▄", "██▀▀  ", "██▄▄  ", "▀████▀"],
+        'K': ["██  ██", "██▄██ ", "██▀██ ", "██  ██"],
+    }
+
+    text = "POWERPACK"
+    
+    console.print("\n")
+    
+    # 1. Top UI framing line
+    console.print("[dim white]" + "─" * 66 + "[/]\n")
+
+    # 2. Perfectly Centered ISAAC Badge
+    # (64 total width of text - 13 width of badge) / 2 = 25 spaces of padding
+    console.print("                         [bold black on white]  I S A A C  [/]\n")
+
+    # 3. The POWERPACK Text
+    for i in range(4):
+        line_content = ""
+        for char in text:
+            if char in font:
+                # Add 1 space between each letter for breathability
+                line_content += font[char][i] + " " 
+        
+        console.print(f"[{NEON_GREEN}]{line_content}[/]")
+
+    # 4. Bottom UI framing and prompt
+    console.print("\n[dim white]" + "─" * 66 + "[/]")
 
 # ── Step helpers ──────────────────────────────────────────────────────────────
 
@@ -43,7 +86,7 @@ def _step2_check_existing_config(manager: Manager) -> bool:
         "[yellow]Found existing pow.toml[/yellow]"
     )
     override = Confirm.ask(
-        "   Do you want to override existing pow.toml and re-initialize?",
+        "   Do you want to override existing pow.toml?",
         default=False,
     )
     if override:
@@ -173,10 +216,17 @@ def _step5_optimization(manager: Manager, isaacsim_path: str):
         console.print("   [yellow]✔[/yellow] Cache file already exists.")
 
 
-def _step6_ros_integration(manager: Manager, global_dir_name: str) -> bool:
+def _step6_ros_integration(manager: Manager, global_dir_name: str, forced_value: bool | None = None) -> bool:
     """Prompt for ROS integration and set it up. Returns whether ROS was enabled."""
     console.print("[bold blue][6/8] 🤖 ROS Integration:[/bold blue]")
-    enabled = Confirm.ask("   Enable ROS integration?", default=True)
+    
+    if forced_value is not None:
+        enabled = forced_value
+        status_text = "[bold green]enabled[/bold green]" if enabled else "[bold yellow]disabled[/bold yellow]"
+        console.print(f"   Using existing ROS setting from pow.toml: {status_text}")
+    else:
+        enabled = Confirm.ask("   Enable ROS integration?", default=True)
+
     if not enabled:
         console.print("   [yellow]⊖[/yellow] Skipping ROS integration.")
         return False
@@ -273,11 +323,11 @@ def init_cmd():
     global_dir_name = config["global_dir_name"]
     global_path = config["global_path"]
 
+    draw_logo()
+
     console.print(
-        Panel.fit(
-            "[bold cyan]🚀 Isaac Powerpack Initialization[/bold cyan]",
-            subtitle="[dim]Setting up Isaac Sim environment[/dim]",
-        )
+            "\n"
+            "[bold cyan]🚀 Initialization Pow Project[/bold cyan]",
     )
 
     if not _step1_check_config(global_dir_name):
@@ -291,9 +341,22 @@ def init_cmd():
         return
 
     _step5_optimization(manager, download_result["path"])
-    ros_enabled = _step6_ros_integration(manager, global_dir_name)
+    
+    # Use existing ROS setting if not overriding pow.toml
+    ros_forced = None
+    if not override_pow_toml:
+        try:
+            ros_forced = manager.config.get("enable_ros", False)
+        except Exception:
+            pass
+
+    ros_enabled = _step6_ros_integration(manager, global_dir_name, forced_value=ros_forced)
     _step7_project_structure(manager)
-    _step8_finalize(manager, override_pow_toml, ros_enabled)
+    
+    if override_pow_toml:
+        _step8_finalize(manager, override_pow_toml, ros_enabled)
+    else:
+        console.print("[bold blue][8/8] ✅ Finalizing:[/bold blue] [yellow]Kept existing pow.toml[/yellow]")
 
     console.print(
         Panel(
