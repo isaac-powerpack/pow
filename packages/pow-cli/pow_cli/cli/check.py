@@ -4,17 +4,15 @@ import click
 from rich.panel import Panel
 
 from ..common.utils import console
-from ..core.manager import Manager
+from ..core.runner import Runner
 
 
 @click.command(name="check")
 def check_cmd():
     """Run Isaac Sim compatibility check."""
-    manager = Manager()
-
     console.print("[bold blue]🔍 Running Isaac Sim compatibility check...[/bold blue]")
 
-    result = manager.check_compatibility()
+    result = Runner.check_compatibility()
     status = result["status"]
 
     if status == "passed":

@@ -10,7 +10,7 @@ class TestCheckCmd:
     def setup(self, mocker):
         self.runner = CliRunner()
         self.mock_check = mocker.patch(
-            "pow_cli.core.manager.Manager.check_compatibility"
+            "pow_cli.core.runner.Runner.check_compatibility"
         )
 
     def _invoke(self):
