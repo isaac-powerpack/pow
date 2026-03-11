@@ -7,7 +7,10 @@ requires-python = ">=3.10"
 dependencies = [
     "click>=8.1.7",
     "distro>=1.9.0",
+    "isaacsim[compatibility-check]>=5.1.0.0",
+    "packaging>=26.0",
     "rich",
+    "setuptools>=82.0.1",
 ]
 license = "Apache-2.0"
 authors = [
@@ -27,3 +30,6 @@ packages = ["pow_cli"]
 
 [dependency-groups]
 dev = ["pytest>=9.0.2", "pytest-mock>=3.15.1"]
+
+[[tool.uv.index]]
+url = "https://pypi.nvidia.com/"

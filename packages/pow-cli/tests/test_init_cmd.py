@@ -6,7 +6,7 @@ from pow_cli.common.utils import get_global_dir_name
 from pow_cli.cli.init import init_cmd
 
 @pytest.mark.cli
-class TestCliInit:
+class TestInitCmd:
     @pytest.fixture(autouse=True)
     def mock_manager_methods(self, mocker):
         """Mock common Manager methods used by init_cmd to avoid side effects."""

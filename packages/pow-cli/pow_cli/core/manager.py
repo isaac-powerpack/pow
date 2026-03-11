@@ -1,6 +1,7 @@
 """Manager core logic."""
 
 import json
+import os
 import platform
 import re
 import shutil
@@ -90,6 +91,74 @@ class Manager:
             "global_dir_name": self.global_dir_name,
             "global_path": self.global_path,
         }
+
+    def get_isaacsim_path(self) -> Path | None:
+        """Resolve the Isaac Sim installation path.
+
+        Checks the managed .pow/isaacsim/<version> folder first, then falls
+        back to importing the ``isaacsim`` Python package. Returns None if
+        Isaac Sim cannot be located.
+        """
+        managed = self.global_path / "isaacsim" / _ISAACSIM_VERSION
+        if managed.is_dir():
+            return managed
+
+        try:
+            import isaacsim
+            pkg_path = Path(isaacsim.__file__).parent
+            if pkg_path.is_dir():
+                return pkg_path
+        except ImportError:
+            pass
+
+        return None
+
+    def check_compatibility(self) -> dict:
+        """Run the Isaac Sim built-in compatibility check.
+
+        Uses the ``isaacsim`` CLI entry point installed via pip.
+        Streams output to the terminal, waits for the process to finish,
+        then reports passed/failed based on ``System checking result:``.
+
+        Returns a dict with keys:
+            status  – "passed" | "failed" | "aborted" | "not_found"
+        """
+        isaacsim_cmd = shutil.which("isaacsim")
+        if isaacsim_cmd is None:
+            return {
+                "status": "not_found",
+                "message": (
+                    "The `isaacsim` command was not found. "
+                    'Install it with: uv add "isaacsim[compatibility-check]" --index https://pypi.nvidia.com'
+                ),
+            }
+
+        try:
+            process = subprocess.Popen(
+                [isaacsim_cmd, "isaacsim.exp.compatibility_check"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+        except OSError as e:
+            return {"status": "failed", "message": f"Failed to launch compatibility check: {e}"}
+
+        output_lines: list[str] = []
+        try:
+            for line in process.stdout:
+                print(line, end="", flush=True)
+                output_lines.append(line)
+            process.wait()
+        except KeyboardInterrupt:
+            process.kill()
+            process.wait()
+            return {"status": "aborted"}
+
+        full_output = "".join(output_lines)
+        if "System checking result: PASSED" in full_output:
+            return {"status": "passed"}
+        return {"status": "failed"}
+
 
     def create_global_folder(self):
         """Create the global directories and return the created paths with status."""
@@ -269,6 +338,38 @@ class Manager:
         return {"status": "Created", "path": str(pow_toml_path)}
 
     # ── Private methods ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _fix_isaacsim_permissions(isaacsim_path: Path):
+        """Recursively fix execute permissions lost during zip extraction.
+
+        Makes all .sh files executable and restores execute bits on known
+        binary paths (e.g. kit/python/bin/python3).
+        """
+        # Fix all .sh scripts
+        for sh_file in isaacsim_path.rglob("*.sh"):
+            if sh_file.is_file() and not os.access(sh_file, os.X_OK):
+                sh_file.chmod(sh_file.stat().st_mode | 0o111)
+
+        # Fix known binary directories
+        bin_dirs = [
+            isaacsim_path / "kit" / "python" / "bin",
+            isaacsim_path / "kit",
+        ]
+        for bin_dir in bin_dirs:
+            if not bin_dir.is_dir():
+                continue
+            for f in bin_dir.iterdir():
+                if f.is_file() and not os.access(f, os.X_OK):
+                    # Check if it looks like an ELF binary or script
+                    try:
+                        with open(f, "rb") as fh:
+                            header = fh.read(4)
+                        if header[:4] == b"\x7fELF" or header[:2] == b"#!":
+                            f.chmod(f.stat().st_mode | 0o111)
+                    except OSError:
+                        pass
+
     def _download_isaacsim_zip(self, zip_path, progress_callback, status_callback, mock):
         """Download the Isaac Sim zip archive."""
         if not mock and zip_path.exists():
@@ -318,13 +419,18 @@ class Manager:
 
         try:
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                namelist = zip_ref.namelist()
-                total_files = len(namelist)
+                members = zip_ref.infolist()          # ZipInfo objects carry external_attr
+                total_files = len(members)
                 target_folder.mkdir(parents=True, exist_ok=True)
-                for i, member in enumerate(namelist):
+                for i, info in enumerate(members):
                     if progress_callback and i % 50 == 0:
                         progress_callback(i, total_files)
-                    zip_ref.extract(member, target_folder)
+                    extracted = target_folder / info.filename
+                    zip_ref.extract(info, target_folder)
+                    # Restore Unix permissions stored in the zip (upper 16 bits of external_attr)
+                    unix_mode = (info.external_attr >> 16) & 0xFFFF
+                    if unix_mode and extracted.exists():
+                        extracted.chmod(unix_mode)
                 if progress_callback:
                     progress_callback(total_files, total_files)
             if status_callback:

@@ -4,13 +4,8 @@ version = "0.1.0a3"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
-dependencies = [
-    "distro>=1.9.0",
-]
+dependencies = ["distro>=1.9.0"]
 license = "Apache-2.0"
-
-[[tool.uv.index]]
-url = "https://pypi.nvidia.com/"
 
 [tool.uv.workspace]
 members = ["packages/pow-cli"]

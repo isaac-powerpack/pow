@@ -74,7 +74,7 @@ def _step3_global_folder(manager: Manager, global_path):
 
 def _step4_download_isaacsim(manager: Manager) -> dict | None:
     """Download Isaac Sim with a Rich progress bar. Returns result dict or None on error."""
-    console.print("[bold blue][4/8] 📦 Isaac Sim App:[/bold blue] Downloading Isaac Sim 5.1.0...")
+    console.print("[bold blue][4/8] 📦 Isaac Sim App:[/bold blue] Installing Isaac Sim 5.1.0...")
 
     result = None
     error = None
