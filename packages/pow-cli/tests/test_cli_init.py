@@ -32,8 +32,9 @@ class TestCliInit:
         mock_data = {"global_existed": False, "results": []}
         with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_data):
             with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
-                with patch("time.sleep"):
-                    result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"}) 
+                with patch("pow_cli.core.manager.Manager.setup_project_structure", return_value={"results": []}):
+                    with patch("time.sleep"):
+                        result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"}) 
                 assert result.exit_code == 0
                 assert "[1/8] 🔧 Config:" in result.output
                 assert "Using global directory" in result.output
@@ -54,9 +55,10 @@ class TestCliInit:
         }
         with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_data):
             with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
-                with patch("time.sleep"):
-                    result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
-                    assert result.exit_code == 0
+                with patch("pow_cli.core.manager.Manager.setup_project_structure", return_value={"results": []}):
+                    with patch("time.sleep"):
+                        result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
+                        assert result.exit_code == 0
                 assert "already exists" in result.output
 
     def test_init_cmd_asset_browser_fix_output(self):
@@ -66,8 +68,9 @@ class TestCliInit:
         with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_global_data):
             with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
                 with patch("pow_cli.core.manager.Manager.fix_asset_browser_cache", return_value=True):
-                    with patch("time.sleep"):
-                        result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
+                    with patch("pow_cli.core.manager.Manager.setup_project_structure", return_value={"results": []}):
+                        with patch("time.sleep"):
+                            result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
                         assert "Created missing cache file." in result.output
 
     def test_init_cmd_asset_browser_already_fixed_output(self):
@@ -77,8 +80,9 @@ class TestCliInit:
         with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_global_data):
             with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
                 with patch("pow_cli.core.manager.Manager.fix_asset_browser_cache", return_value=False):
-                    with patch("time.sleep"):
-                        result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
+                    with patch("pow_cli.core.manager.Manager.setup_project_structure", return_value={"results": []}):
+                        with patch("time.sleep"):
+                            result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
                         assert "Cache file already exists." in result.output
 
     def test_init_cmd_ros_integration_output(self):
@@ -88,13 +92,14 @@ class TestCliInit:
             with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
                 with patch("pow_cli.core.manager.Manager.fix_asset_browser_cache", return_value=True):
                     with patch("pow_cli.core.manager.Manager.setup_ros_workspace", return_value={"status": "success", "ros_distro": "humble", "ubuntu_version": "22.04", "path": "/tmp/.pow/sim-ros"}):
-                        with patch("pow_cli.cli.init.Confirm.ask", return_value=True):
-                            with patch("pow_cli.core.manager.Manager.read_config"):
-                                # Force Path("pow.toml").exists() to be False so we skip the first Confirm.
-                                def mock_exists(path_obj, *args, **kwargs):
-                                    return str(path_obj) == "pyproject.toml"
-                                with patch("pathlib.Path.exists", side_effect=mock_exists, autospec=True):
-                                    result = runner.invoke(init_cmd, env={"NO_COLOR": "1", "TERM": "dumb"})
+                        with patch("pow_cli.core.manager.Manager.setup_project_structure", return_value={"results": []}):
+                            with patch("pow_cli.cli.init.Confirm.ask", return_value=True):
+                                with patch("pow_cli.core.manager.Manager.read_config"):
+                                    # Force Path("pow.toml").exists() to be False so we skip the first Confirm.
+                                    def mock_exists(path_obj, *args, **kwargs):
+                                        return str(path_obj) == "pyproject.toml"
+                                    with patch("pathlib.Path.exists", side_effect=mock_exists, autospec=True):
+                                        result = runner.invoke(init_cmd, env={"NO_COLOR": "1", "TERM": "dumb"})
                         assert "Docker build" in result.output
 
     def test_init_cmd_ros_skipped_output(self):
@@ -103,6 +108,7 @@ class TestCliInit:
         with patch("pow_cli.core.manager.Manager.create_global_folder", return_value=mock_global_data):
             with patch("pow_cli.core.manager.Manager.download_isaacsim", return_value={"status": "Already installed", "path": "/tmp/isaacsim"}):
                 with patch("pow_cli.core.manager.Manager.fix_asset_browser_cache", return_value=True):
-                    # Answer 'n' to override config, 'n' to ROS integration
-                    result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
+                    with patch("pow_cli.core.manager.Manager.setup_project_structure", return_value={"results": []}):
+                        # Answer 'n' to override config, 'n' to ROS integration
+                        result = runner.invoke(init_cmd, input="n\nn\n", env={"NO_COLOR": "1", "TERM": "dumb"})
                     assert "Skipping ROS integration." in result.output
