@@ -40,7 +40,7 @@ class Manager:
         self.global_dir_name = get_global_dir_name()
         self.home = Path.home()
         self.global_path = self.home / self.global_dir_name
-        self.config = Config()
+        self._config_instance = None
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -95,12 +95,16 @@ class Manager:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def get_config_info(self):
+    def get_config_path(self):
         """Return global configuration information for Step 1."""
         return {
             "global_dir_name": self.global_dir_name,
             "global_path": self.global_path,
         }
+
+    def get_config(self) -> Config:
+        """Get the Config object representing pow.toml."""
+        return self.config
 
     def get_isaacsim_path(self) -> Path | None:
         """Resolve the Isaac Sim installation path.
@@ -198,6 +202,13 @@ class Manager:
                 })
 
         return {"global_existed": global_exists, "results": results}
+
+    @property
+    def config(self) -> Config:
+        """Get the Config singleton, instantiating it efficiently."""
+        if self._config_instance is None:
+            self._config_instance = Config()
+        return self._config_instance
 
     def read_config(self):
         """Read configuration from an existing pow.toml file using the Config singleton."""

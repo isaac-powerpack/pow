@@ -269,7 +269,7 @@ def _step8_finalize(manager: Manager, override_pow_toml: bool, ros_enabled: bool
 def init_cmd():
     """Initialize Isaac ROS project (Mockup with Rich)."""
     manager = Manager()
-    config = manager.get_config_info()
+    config = manager.get_config_path()
     global_dir_name = config["global_dir_name"]
     global_path = config["global_path"]
 

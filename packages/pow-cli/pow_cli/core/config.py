@@ -20,6 +20,8 @@ class Config:
 
         if self._project_root:
             self._load_config(self._project_root)
+        else:
+            raise RuntimeError("Project not initialized: pow.toml not found")
 
     def _find_project_root(self, start_path: Optional[Path] = None) -> Optional[Path]:
         """Find the project root by locating pow.toml."""

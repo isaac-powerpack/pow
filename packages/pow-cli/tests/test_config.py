@@ -10,8 +10,14 @@ def reset_config_singleton():
     yield
     Config._instance = None
 
-def test_singleton(reset_config_singleton):
+def test_singleton(tmp_path, monkeypatch, reset_config_singleton):
     """Test that Config is a singleton."""
+    root = tmp_path / "project"
+    root.mkdir()
+    pow_toml = root / "pow.toml"
+    pow_toml.write_text("[sim]\nversion='5.1.0'")
+    monkeypatch.chdir(root)
+    
     c1 = Config()
     c2 = Config()
     assert c1 is c2
@@ -87,7 +93,5 @@ def test_no_config_found(tmp_path, monkeypatch, reset_config_singleton):
     empty_dir.mkdir()
     monkeypatch.chdir(empty_dir)
     
-    config = Config()
-    assert config.project_root is None
-    assert config.data == {}
-    assert config.get("any_key", default="fallback") == "fallback"
+    with pytest.raises(RuntimeError, match="Project not initialized: pow.toml not found"):
+        Config()
