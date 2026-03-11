@@ -24,7 +24,15 @@ _ROS_DISTRO_MAP = {"24.04": "jazzy", "22.04": "humble"}
 
 
 class Manager:
-    """Handles the management and initialization process for Isaac Powerpack."""
+    """Handles the management and initialization process for Isaac Powerpack.
+    
+    This class is responsible for:
+    - Run checker to check the system compatibility.
+    - Manage global directories
+    - Manage Project directories
+    - Initialize project and global directory.
+    - Provide config pow.toml interface.
+    """
 
     def __init__(self):
         """Initialize the Manager with default paths."""
