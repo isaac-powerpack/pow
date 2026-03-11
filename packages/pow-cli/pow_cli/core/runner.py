@@ -166,11 +166,6 @@ class Runner:
         for arg in config.get("raw_args", [], profile=profile_name):
             cmd.append(arg)
 
-        open_scene_path = config.get("open_scene_path", "", profile=profile_name)
-        if open_scene_path and config.project_root:
-            full_scene_path = config.project_root / open_scene_path
-            cmd.extend(["--exec", f"open_stage.py file://{full_scene_path}"])
-
         if extra_args:
             cmd.extend(extra_args)
 
