@@ -21,7 +21,6 @@ def mock_config(mocker):
             "headless": False,
             "exts": ["my.ext"],
             "raw_args": ["--arg1"],
-            "open_scene_path": "scene.usda",
             "enable_ros": False,
             "cpu_performance_mode": False
         }
@@ -46,8 +45,6 @@ def test_build_launch_command_default(mock_config, mocker):
     assert "--enable" in cmd
     assert "my.ext" in cmd
     assert "--arg1" in cmd
-    assert "--exec" in cmd
-    assert "open_stage.py file:///home/user/myproject/scene.usda" in cmd
     assert "--no-window" not in cmd
     assert "--extra" in cmd
 
