@@ -1,0 +1,37 @@
+# =========================================================
+# ISAAC SIM CORE ASSETS (5.1.0)
+# =========================================================
+[isaac_sim_assets]
+version = "5.1.0"
+release_date = "2025-10"
+link = "https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/download.html"
+
+[[isaac_sim_assets.packs]]
+name = "Robots & Sensors"
+url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-robots_and_sensors-5.1.0.zip"
+type = "standalone"
+
+[[isaac_sim_assets.packs]]
+name = "Materials & Props"
+url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-materials_and_props-5.1.0.zip"
+type = "standalone"
+
+[[isaac_sim_assets.packs]]
+name = "Environments"
+url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-environments-5.1.0.zip"
+type = "standalone"
+
+[[isaac_sim_assets.packs]]
+name = "Complete Pack (Part 1)"
+url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-complete-5.1.0.zip.001"
+type = "split_archive"
+
+[[isaac_sim_assets.packs]]
+name = "Complete Pack (Part 2)"
+url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-complete-5.1.0.zip.002"
+type = "split_archive"
+
+[[isaac_sim_assets.packs]]
+name = "Complete Pack (Part 3)"
+url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-complete-5.1.0.zip.003"
+type = "split_archive"

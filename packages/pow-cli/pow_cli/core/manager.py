@@ -19,7 +19,6 @@ class Manager:
     """Handles the management and initialization process for Isaac Powerpack.
     
     This class is responsible for:
-    - Run checker to check the system compatibility.
     - Manage global directories
     - Manage Project directories
     - Initialize project and global directory.
