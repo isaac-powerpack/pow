@@ -17,7 +17,6 @@ def pow_group():
 
 # Register commands
 pow_group.add_command(init_cmd)
-pow_group.add_command(add_group)
 pow_group.add_command(check_cmd)
 pow_group.add_command(lint_cmd)
 pow_group.add_command(run_cmd)
