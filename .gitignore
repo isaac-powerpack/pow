@@ -203,11 +203,7 @@ coverage.xml
 *.cover
 .pytest_cache/
 .nyc_output/
-<<<<<<< HEAD
 coverage/
 
 #Claude
 .claude/
-=======
-coverage/
->>>>>>> cc60dca (feat: implement step 7 Project Structure)
