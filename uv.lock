@@ -572,6 +572,7 @@ name = "pow-cli"
 version = "0.1.0a3"
 source = { editable = "packages/pow-cli" }
 dependencies = [
+    { name = "aiohttp" },
     { name = "click" },
     { name = "distro" },
     { name = "isaacsim", extra = ["compatibility-check"] },
@@ -589,6 +590,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.11.11" },
     { name = "click", specifier = ">=8.1.7" },
     { name = "distro", specifier = ">=1.9.0" },
     { name = "isaacsim", extras = ["compatibility-check"], specifier = ">=5.1.0.0" },
