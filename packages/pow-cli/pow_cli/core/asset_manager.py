@@ -9,73 +9,21 @@ class AssetManager:
         self.config = config
 
     def ensure_global_assets(self) -> Path:
-        """Ensure the global assets directory exists."""
-        assets_path = self.config.global_path / "assets"
-        assets_path.mkdir(parents=True, exist_ok=True)
-        return assets_path
+        """Mock ensuring the global assets directory exists."""
+        return self.config.global_path / "assets"
 
     def initialize_local_assets(self, target_folder_name: str) -> Dict[str, Any]:
         """
-        Initialize local asset storage and link it to the global system.
-        
-        Args:
-            target_folder_name: Name of the folder in the current project to store assets.
-            
-        Returns:
-            Dictionary with paths and status information.
+        Mock initializing local asset storage and link it to the global system.
+        No actual filesystem operations are performed in this mock phase.
         """
-        import tomlkit
-        import os
-
-        # 1. Determine local target path
         project_root = self.config.project_root or Path.cwd()
         local_assets_path = (project_root / target_folder_name).resolve()
-        local_assets_path.mkdir(parents=True, exist_ok=True)
-
-        # 2. Create assets_profile.toml in local folder
-        profile_path = local_assets_path / "assets_profile.toml"
-        if not profile_path.exists():
-            doc = tomlkit.document()
-            doc.add("project", project_root.name)
-            doc.add("status", "initialized")
-            doc.add("assets", tomlkit.array())
-            with open(profile_path, "w") as f:
-                f.write(tomlkit.dumps(doc))
-
-        # 3. Create global symlink in ~/.pow/assets/
-        global_assets_dir = self.ensure_global_assets()
-        symlink_path = global_assets_dir / project_root.name
         
-        # Remove existing symlink or file if it exists to avoid errors
-        if symlink_path.exists() or symlink_path.is_symlink():
-            if symlink_path.is_symlink():
-                symlink_path.unlink()
-            elif symlink_path.is_dir():
-                import shutil
-                shutil.rmtree(symlink_path)
-            else:
-                symlink_path.unlink()
-
-        os.symlink(local_assets_path, symlink_path)
-
-        # 4. Update assets_config.toml in .pow folder
+        global_assets_dir = self.config.global_path / "assets"
+        symlink_path = global_assets_dir / project_root.name
         config_path = self.config.global_path / "assets_config.toml"
-        if config_path.exists():
-            with open(config_path, "r") as f:
-                config_data = tomlkit.load(f)
-        else:
-            config_data = tomlkit.document()
-            config_data.add("projects", tomlkit.table())
-
-        projects = config_data.get("projects", tomlkit.table())
-        projects[project_root.name] = {
-            "path": str(local_assets_path),
-            "initialized_at": os.path.getctime(local_assets_path)
-        }
-        config_data["projects"] = projects
-
-        with open(config_path, "w") as f:
-            f.write(tomlkit.dumps(config_data))
+        profile_path = local_assets_path / "assets_profile.toml"
 
         return {
             "local_path": str(local_assets_path),
@@ -84,6 +32,31 @@ class AssetManager:
             "config_file": str(config_path),
             "profile_file": str(profile_path)
         }
+
+    def _parse_size(self, size_str: str) -> float:
+        """Parse size string like '2.62 GB' or '891MB' into GB float."""
+        if not size_str or size_str == "N/A":
+            return 0.0
+        
+        size_str = size_str.upper().replace(" ", "")
+        try:
+            if "GB" in size_str:
+                return float(size_str.replace("GB", ""))
+            elif "MB" in size_str:
+                return float(size_str.replace("MB", "")) / 1024.0
+            return float(size_str)
+        except ValueError:
+            return 0.0
+
+    def get_asset_status(self, slug: str) -> Dict[str, Any]:
+        """
+        Check the status of a specific asset from local tracking.
+        Returns mock status for now.
+        """
+        # Mock status check logic
+        if slug == "robots_and_sensors":
+            return {"status": "Installed", "percent": 100}
+        return {"status": "Not Loaded", "percent": 0}
 
     def list_assets(self) -> List[Dict[str, Any]]:
         """
@@ -108,12 +81,15 @@ class AssetManager:
                 # In the new structure, assets are under isaacsim_assets.isaacsim_5_1_0
                 packs = isaac_root.get("isaacsim_5_1_0", [])
                 for pack in packs:
+                    slug = pack.get("name")
+                    status_info = self.get_asset_status(slug)
                     assets.append({
                         "name": pack.get("title", pack.get("name")),
-                        "slug": pack.get("name"),
+                        "slug": slug,
                         "group": f"isaac-sim {version}",
-                        "status": "Not Loaded",
-                        "completion": 0,
+                        "category": "isaacsim_5_1_0",
+                        "status": status_info["status"],
+                        "completion": status_info["percent"],
                         "size": pack.get("size", "N/A")
                     })
 
@@ -135,12 +111,15 @@ class AssetManager:
                 for key, group_name in group_mapping.items():
                     packs = omni_root.get(key, [])
                     for pack in packs:
+                        slug = pack.get("name")
+                        status_info = self.get_asset_status(slug)
                         assets.append({
                             "name": pack.get("title", pack.get("name")),
-                            "slug": pack.get("name"),
+                            "slug": slug,
                             "group": group_name,
-                            "status": "Not Loaded",
-                            "completion": 0,
+                            "category": key,
+                            "status": status_info["status"],
+                            "completion": status_info["percent"],
                             "size": pack.get("size", "N/A")
                         })
 
