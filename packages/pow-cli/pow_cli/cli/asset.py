@@ -15,20 +15,28 @@ def asset_group():
     pass
 
 @asset_group.command(name="init")
-def asset_init():
+@click.option("--target", "-t", help="Target folder name to store local assets")
+def asset_init(target):
     """Initialize asset directory and tracking."""
     console.print("[bold blue]🚀 Initializing asset tracking system...[/bold blue]")
     
+    if not target:
+        target = click.prompt("Enter target folder name to store local assets", default="assets")
+
     config = Config()
     manager = AssetManager(config)
-    result = manager.init()
+    
+    # 1. Ensure global folder exists
+    manager.ensure_global_assets()
+    
+    # 2. Initialize local assets and symlink
+    result = manager.initialize_local_assets(target)
 
-    console.print(f"  [green]✔[/green] Created assets folder: [cyan]{result['assets_path']}[/cyan]")
-    console.print(f"  [green]✔[/green] Set folder location mapping: [cyan]{result['mapping']}[/cyan]")
-    console.print(f"  [green]✔[/green] Created tracking status file: [cyan]{result['tracking_file']}[/cyan]")
-    console.print(f"  [green]✔[/green] Symlinked to project: [cyan]{result['symlink']}[/cyan]")
+    console.print(f"  [green]✔[/green] Created local assets folder: [cyan]{result['local_path']}[/cyan]")
+    console.print(f"  [green]✔[/green] Created local profile: [cyan]{result['profile_file']}[/cyan]")
+    console.print(f"  [green]✔[/green] Created global config: [cyan]{result['config_file']}[/cyan]")
+    console.print(f"  [green]✔[/green] Symlinked project to global assets: [cyan]{result['symlink_path']}[/cyan]")
     console.print("\n[bold green]✅ Asset system initialized successfully.[/bold green]")
-    console.print("[italic]Modified pow.toml: Added [assets] section.[/italic]")
 
 @asset_group.command(name="list")
 def asset_list():

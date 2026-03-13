@@ -8,16 +8,81 @@ class AssetManager:
     def __init__(self, config: Config):
         self.config = config
 
-    def init(self) -> Dict[str, Any]:
+    def ensure_global_assets(self) -> Path:
+        """Ensure the global assets directory exists."""
+        assets_path = self.config.global_path / "assets"
+        assets_path.mkdir(parents=True, exist_ok=True)
+        return assets_path
+
+    def initialize_local_assets(self, target_folder_name: str) -> Dict[str, Any]:
         """
-        Mock initialization of asset directory and tracking.
-        Returns a dictionary with status information.
+        Initialize local asset storage and link it to the global system.
+        
+        Args:
+            target_folder_name: Name of the folder in the current project to store assets.
+            
+        Returns:
+            Dictionary with paths and status information.
         """
+        import tomlkit
+        import os
+
+        # 1. Determine local target path
+        project_root = self.config.project_root or Path.cwd()
+        local_assets_path = (project_root / target_folder_name).resolve()
+        local_assets_path.mkdir(parents=True, exist_ok=True)
+
+        # 2. Create assets_profile.toml in local folder
+        profile_path = local_assets_path / "assets_profile.toml"
+        if not profile_path.exists():
+            doc = tomlkit.document()
+            doc.add("project", project_root.name)
+            doc.add("status", "initialized")
+            doc.add("assets", tomlkit.array())
+            with open(profile_path, "w") as f:
+                f.write(tomlkit.dumps(doc))
+
+        # 3. Create global symlink in ~/.pow/assets/
+        global_assets_dir = self.ensure_global_assets()
+        symlink_path = global_assets_dir / project_root.name
+        
+        # Remove existing symlink or file if it exists to avoid errors
+        if symlink_path.exists() or symlink_path.is_symlink():
+            if symlink_path.is_symlink():
+                symlink_path.unlink()
+            elif symlink_path.is_dir():
+                import shutil
+                shutil.rmtree(symlink_path)
+            else:
+                symlink_path.unlink()
+
+        os.symlink(local_assets_path, symlink_path)
+
+        # 4. Update assets_config.toml in .pow folder
+        config_path = self.config.global_path / "assets_config.toml"
+        if config_path.exists():
+            with open(config_path, "r") as f:
+                config_data = tomlkit.load(f)
+        else:
+            config_data = tomlkit.document()
+            config_data.add("projects", tomlkit.table())
+
+        projects = config_data.get("projects", tomlkit.table())
+        projects[project_root.name] = {
+            "path": str(local_assets_path),
+            "initialized_at": os.path.getctime(local_assets_path)
+        }
+        config_data["projects"] = projects
+
+        with open(config_path, "w") as f:
+            f.write(tomlkit.dumps(config_data))
+
         return {
-            "assets_path": str(self.config.global_path / "assets"),
-            "tracking_file": str(self.config.global_path / "assets" / "tracking.json"),
-            "mapping": {"isaac-sim": "5.1.0"},
-            "symlink": ".pow/assets"
+            "local_path": str(local_assets_path),
+            "global_assets_path": str(global_assets_dir),
+            "symlink_path": str(symlink_path),
+            "config_file": str(config_path),
+            "profile_file": str(profile_path)
         }
 
     def list_assets(self) -> List[Dict[str, Any]]:
@@ -25,23 +90,27 @@ class AssetManager:
         Listing available assets and their status from the registry.
         """
         import tomllib
-        import os
+        from pathlib import Path
 
         # Get path to the data directory relative to this file
         data_dir = Path(__file__).parent.parent / "data" / "asset-registry"
         
         assets = []
 
-        # 1. Load Isaac Sim assets (Individual packs)
+        # 1. Load Isaac Sim assets
         isaac_path = data_dir / "isaacsim_assets_5_1_0.toml"
         if isaac_path.exists():
             with open(isaac_path, "rb") as f:
                 data = tomllib.load(f)
-                isaac_data = data.get("isaac_sim_assets", {})
-                version = isaac_data.get("version", "5.1.0")
-                for pack in isaac_data.get("packs", []):
+                isaac_root = data.get("isaacsim_assets", {})
+                version = isaac_root.get("version", "5.1.0")
+                
+                # In the new structure, assets are under isaacsim_assets.isaacsim_5_1_0
+                packs = isaac_root.get("isaacsim_5_1_0", [])
+                for pack in packs:
                     assets.append({
-                        "name": pack["name"],
+                        "name": pack.get("title", pack.get("name")),
+                        "slug": pack.get("name"),
                         "group": f"isaac-sim {version}",
                         "status": "Not Loaded",
                         "completion": 0,
@@ -55,18 +124,20 @@ class AssetManager:
                 data = tomllib.load(f)
                 
                 group_mapping = {
-                    "3d_assets": "omniverse / 3d_assets",
-                    "sim_ready": "omniverse / sim-ready",
-                    "materials": "omniverse / material",
-                    "environments": "omniverse / environments",
-                    "workflows": "omniverse / workflow"
+                    "omni_3d_assets": "omniverse / 3d_assets",
+                    "omni_sim_ready": "omniverse / sim-ready",
+                    "omni_materials": "omniverse / material",
+                    "omni_environments": "omniverse / environments",
+                    "omni_workflows": "omniverse / workflow"
                 }
 
-                omni_data = data.get("omniverse", {})
+                omni_root = data.get("omniverse", {})
                 for key, group_name in group_mapping.items():
-                    for pack in omni_data.get(key, []):
+                    packs = omni_root.get(key, [])
+                    for pack in packs:
                         assets.append({
-                            "name": pack["name"],
+                            "name": pack.get("title", pack.get("name")),
+                            "slug": pack.get("name"),
                             "group": group_name,
                             "status": "Not Loaded",
                             "completion": 0,

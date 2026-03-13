@@ -1,37 +1,39 @@
 # =========================================================
 # ISAAC SIM CORE ASSETS (5.1.0)
 # =========================================================
-[isaac_sim_assets]
+[isaacsim_assets]
 version = "5.1.0"
 release_date = "2025-10"
 link = "https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/download.html"
 
-[[isaac_sim_assets.packs]]
-name = "Robots & Sensors"
+[[isaacsim_assets.isaacsim_5_1_0]]
+title = "Robots & Sensors"
+name = "robots_and_sensors"
 url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-robots_and_sensors-5.1.0.zip"
 type = "standalone"
+size = "2.62 GB"
 
-[[isaac_sim_assets.packs]]
-name = "Materials & Props"
+[[isaacsim_assets.isaacsim_5_1_0]]
+title = "Materials & Props"
+name = "materials_and_props"
 url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-materials_and_props-5.1.0.zip"
 type = "standalone"
+size = "3.47 GB"
 
-[[isaac_sim_assets.packs]]
-name = "Environments"
+[[isaacsim_assets.isaacsim_5_1_0]]
+title = "Environments"
+name = "environments"
 url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-environments-5.1.0.zip"
 type = "standalone"
+size = "13.47 GB"
 
-[[isaac_sim_assets.packs]]
-name = "Complete Pack (Part 1)"
-url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-complete-5.1.0.zip.001"
+[[isaacsim_assets.isaacsim_5_1_0]]
+title = "Complete Pack"
+name = "complete_pack"
+url = [
+    "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-complete-5.1.0.zip.001",
+    "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-complete-5.1.0.zip.002",
+    "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-complete-5.1.0.zip.003",
+]
 type = "split_archive"
-
-[[isaac_sim_assets.packs]]
-name = "Complete Pack (Part 2)"
-url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-complete-5.1.0.zip.002"
-type = "split_archive"
-
-[[isaac_sim_assets.packs]]
-name = "Complete Pack (Part 3)"
-url = "https://download.isaacsim.omniverse.nvidia.com/isaac-sim-assets-complete-5.1.0.zip.003"
-type = "split_archive"
+size = "139.97 GB"

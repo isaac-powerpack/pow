@@ -8,48 +8,57 @@ link = "https://docs.omniverse.nvidia.com/usd/latest/usd_content_samples/downloa
 # Subtotal: ~87.1 GB
 # =========================================================
 
-[[omniverse.3d_assets]]
-name = "Default Scene Templates Pack"
+[[omniverse.omni_3d_assets]]
+title = "Default Scene Templates Pack"
+name = "default_scene_templates"
 size = "24MB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Scene_Templates_NVD%4010011.zip"
 
-[[omniverse.3d_assets]]
-name = "Commercial Assets Pack"
+[[omniverse.omni_3d_assets]]
+title = "Commercial Assets Pack"
+name = "commercial_assets"
 size = "5.8GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Commercial_NVD%4010013.zip"
 
-[[omniverse.3d_assets]]
-name = "Industrial Assets Pack"
+[[omniverse.omni_3d_assets]]
+title = "Industrial Assets Pack"
+name = "industrial_assets"
 size = "1.8GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Industrial_NVD%4010012.zip"
 
-[[omniverse.3d_assets]]
-name = "Residential Assets Pack"
+[[omniverse.omni_3d_assets]]
+title = "Residential Assets Pack"
+name = "residential_assets"
 size = "22.5GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Residential_NVD%4010012.zip"
 
-[[omniverse.3d_assets]]
-name = "Warehouse Assets Pack"
+[[omniverse.omni_3d_assets]]
+title = "Warehouse Assets Pack"
+name = "warehouse_assets"
 size = "18GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Warehouse_NVD%4010013.zip"
 
-[[omniverse.3d_assets]]
-name = "Showcase Scenes Asset Pack"
+[[omniverse.omni_3d_assets]]
+title = "Showcase Scenes Asset Pack"
+name = "showcase_scenes"
 size = "2.3GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Showcases_Content_NVD%4010011.zip"
 
-[[omniverse.3d_assets]]
-name = "Sample Scenes Asset Pack"
+[[omniverse.omni_3d_assets]]
+title = "Sample Scenes Asset Pack"
+name = "sample_scenes"
 size = "26.0GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Sample_Scenes_NVD%4010013.zip"
 
-[[omniverse.3d_assets]]
-name = "Rigged Characters Asset Pack"
+[[omniverse.omni_3d_assets]]
+title = "Rigged Characters Asset Pack"
+name = "rigged_characters"
 size = "891MB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Characters_NVD%4010012.zip"
 
-[[omniverse.3d_assets]]
-name = "Data Center Assets Pack"
+[[omniverse.omni_3d_assets]]
+title = "Data Center Assets Pack"
+name = "datacenter_assets"
 size = "9.8GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Datacenter_NVD%4010012.zip"
 
@@ -59,28 +68,33 @@ url = "https://d4i3qtqj3r0z5.cloudfront.net/Datacenter_NVD%4010012.zip"
 # Subtotal: ~85.8 GB
 # =========================================================
 
-[[omniverse.sim_ready]]
-name = "SimReady Warehouse 01 Assets Pack"
+[[omniverse.omni_sim_ready]]
+title = "SimReady Warehouse 01 Assets Pack"
+name = "simready_warehouse_01"
 size = "13.9GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/SimReady_Warehouse_01_NVD%4010010.zip"
 
-[[omniverse.sim_ready]]
-name = "SimReady Warehouse 02 Assets Pack"
+[[omniverse.omni_sim_ready]]
+title = "SimReady Warehouse 02 Assets Pack"
+name = "simready_warehouse_02"
 size = "20.5GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/SimReady_Warehouse_02_NVD%4010010.zip"
 
-[[omniverse.sim_ready]]
-name = "SimReady Furniture & Misc Assets Pack"
+[[omniverse.omni_sim_ready]]
+title = "SimReady Furniture & Misc Assets Pack"
+name = "simready_furniture_misc"
 size = "9.4GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/SimReady_Furniture_Misc_01_NVD%4010010.zip"
 
-[[omniverse.sim_ready]]
-name = "SimReady Containers & Shipping 01 Assets Pack"
+[[omniverse.omni_sim_ready]]
+title = "SimReady Containers & Shipping 01 Assets Pack"
+name = "simready_containers_shipping_01"
 size = "21.4GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/SimReady_Containers_Shipping_01_NVD%4010010.zip"
 
-[[omniverse.sim_ready]]
-name = "SimReady Containers & Shipping 02 Assets Pack"
+[[omniverse.omni_sim_ready]]
+title = "SimReady Containers & Shipping 02 Assets Pack"
+name = "simready_containers_shipping_02"
 size = "20.6GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/SimReady_Containers_Shipping_02_NVD%4010010.zip"
 
@@ -90,18 +104,21 @@ url = "https://d4i3qtqj3r0z5.cloudfront.net/SimReady_Containers_Shipping_02_NVD%
 # Subtotal: ~34.7 GB
 # =========================================================
 
-[[omniverse.materials]]
-name = "Base Materials Pack"
+[[omniverse.omni_materials]]
+title = "Base Materials Pack"
+name = "base_materials"
 size = "8.2GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Base_Materials_NVD%4010013.zip"
 
-[[omniverse.materials]]
-name = "vMaterials 2 Pack"
+[[omniverse.omni_materials]]
+title = "vMaterials 2 Pack"
+name = "vmaterials_2"
 size = "5.5GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/vMaterials_2_4_0_NVD%40020240.zip"
 
-[[omniverse.materials]]
-name = "Automotive Materials Pack"
+[[omniverse.omni_materials]]
+title = "Automotive Materials Pack"
+name = "automotive_materials"
 size = "21GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Automotive_Materials_NVD%4010011.zip"
 
@@ -111,13 +128,15 @@ url = "https://d4i3qtqj3r0z5.cloudfront.net/Automotive_Materials_NVD%4010011.zip
 # Subtotal: ~24.9 GB
 # =========================================================
 
-[[omniverse.environments]]
-name = "Environments Skies Pack"
+[[omniverse.omni_environments]]
+title = "Environments Skies Pack"
+name = "environments_skies"
 size = "8.9GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Environments_NVD%4010012.zip"
 
-[[omniverse.environments]]
-name = "Environment Templates Pack"
+[[omniverse.omni_environments]]
+title = "Environment Templates Pack"
+name = "environment_templates"
 size = "16.0GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Environments_Templates_NVD%4010010.zip"
 
@@ -127,82 +146,98 @@ url = "https://d4i3qtqj3r0z5.cloudfront.net/Environments_Templates_NVD%4010010.z
 # Subtotal: ~42.6 GB
 # =========================================================
 
-[[omniverse.workflows]]
-name = "AnimGraph Sample Assets Pack"
+[[omniverse.omni_workflows]]
+title = "AnimGraph Sample Assets Pack"
+name = "animgraph_sample"
 size = "1.6GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/AnimGraph_NVD%4010010.zip"
 
-[[omniverse.workflows]]
-name = "Automotive Configurator Assets Pack"
+[[omniverse.omni_workflows]]
+title = "Automotive Configurator Assets Pack"
+name = "automotive_configurator"
 size = "2.0GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Configurator_Content_NVD%4010010.zip"
 
-[[omniverse.workflows]]
-name = "Particle Systems Asset Pack"
+[[omniverse.omni_workflows]]
+title = "Particle Systems Asset Pack"
+name = "particle_systems"
 size = "159MB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Particles_NVD%4010010.zip"
 
-[[omniverse.workflows]]
-name = "Extensions Samples Asset Pack"
+[[omniverse.omni_workflows]]
+title = "Extensions Samples Asset Pack"
+name = "extensions_samples"
 size = "900MB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Extensions_Samples_NVD%4010010.zip"
 
-[[omniverse.workflows]]
-name = "Physics Demo Scenes Asset Pack"
+[[omniverse.omni_workflows]]
+title = "Physics Demo Scenes Asset Pack"
+name = "physics_demo_scenes"
 size = "5.5GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Physics_Scenes_NVD%4010010.zip"
 
-[[omniverse.workflows]]
-name = "XR Samples Asset Pack"
+[[omniverse.omni_workflows]]
+title = "XR Samples Asset Pack"
+name = "xr_samples"
 size = "5.3GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/XR_Content_NVD%4010010.zip"
 
-[[omniverse.workflows]]
-name = "Core Demo Samples Asset Pack"
+[[omniverse.omni_workflows]]
+title = "Core Demo Samples Asset Pack"
+name = "core_demo_samples"
 size = "8.9GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/Core_Demos_NVD%4010010.zip"
 
-[[omniverse.workflows]]
-name = "USD Explorer Sample Assets Pack"
+[[omniverse.omni_workflows]]
+title = "USD Explorer Sample Assets Pack"
+name = "usd_explorer_sample"
 size = "508MB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/USD_Explorer_Sample_NVD%4010011.zip"
 
-[[omniverse.workflows]]
-name = "Defect Detection Demo Pack"
+[[omniverse.omni_workflows]]
+title = "Defect Detection Demo Pack"
+name = "defect_detection_demo"
 size = "325MB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/DefectDet_DemoPack_NVDA%401.0.1.zip"
 
-[[omniverse.workflows]]
-name = "Architectural Brownstone Assets Pack"
+[[omniverse.omni_workflows]]
+title = "Architectural Brownstone Assets Pack"
+name = "architectural_brownstone"
 size = "2.0GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/AECDemo_NVD%4010012.zip"
 
-[[omniverse.workflows]]
-name = "City Demo Assets Pack"
+[[omniverse.omni_workflows]]
+title = "City Demo Assets Pack"
+name = "city_demo"
 size = "193MB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/AECO_CityDemoPack_NVD%4010011.zip"
 
-[[omniverse.workflows]]
-name = "City Massing Demo Assets Pack"
+[[omniverse.omni_workflows]]
+title = "City Massing Demo Assets Pack"
+name = "city_massing_demo"
 size = "193MB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/AECO_CityMassingDemoPack_NVD%4010011.zip"
 
-[[omniverse.workflows]]
-name = "City Tower Demo Assets Pack"
+[[omniverse.omni_workflows]]
+title = "City Tower Demo Assets Pack"
+name = "city_tower_demo"
 size = "2.8GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/AECO_CityTowerDemoPack_NVD%4010011.zip"
 
-[[omniverse.workflows]]
-name = "Restaurant Demo Assets Pack"
+[[omniverse.omni_workflows]]
+title = "Restaurant Demo Assets Pack"
+name = "restaurant_demo"
 size = "3.9GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/AECO_RestaurantDemoPack_NVD%4010012.zip"
 
-[[omniverse.workflows]]
-name = "Tower Demo Assets Pack"
+[[omniverse.omni_workflows]]
+title = "Tower Demo Assets Pack"
+name = "tower_demo"
 size = "8.3GB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/AECO_TowerDemoPack_NVD%4010012.zip"
 
-[[omniverse.workflows]]
-name = "AEC XR Assets Pack"
+[[omniverse.omni_workflows]]
+title = "AEC XR Assets Pack"
+name = "aec_xr"
 size = "13MB"
 url = "https://d4i3qtqj3r0z5.cloudfront.net/AEC_XR_NVD%40100.1.2.zip"

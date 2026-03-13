@@ -29,15 +29,23 @@ def load_isaac_sim_assets() -> list[AssetUrl]:
         data = tomlkit.parse(f.read())
 
     assets = []
-    for pack in data.get("isaac_sim_assets", {}).get("packs", []):
-        assets.append(
-            AssetUrl(
-                name=pack.get("name", "Unknown"),
-                url=pack.get("url", ""),
-                source_file="isaacsim_assets_5_1_0.toml",
-                category="isaac_sim",
+    isaacsim_data = data.get("isaacsim_assets", {})
+    
+    # New structure uses isaacsim_5_1_0 key
+    for pack in isaacsim_data.get("isaacsim_5_1_0", []):
+        urls = pack.get("url", [])
+        if isinstance(urls, str):
+            urls = [urls]
+        
+        for url in urls:
+            assets.append(
+                AssetUrl(
+                    name=pack.get("title", pack.get("name", "Unknown")),
+                    url=url,
+                    source_file="isaacsim_assets_5_1_0.toml",
+                    category="isaac_sim",
+                )
             )
-        )
     return assets
 
 
@@ -50,17 +58,23 @@ def load_omniverse_assets() -> list[AssetUrl]:
     assets = []
     omniverse_data = data.get("omniverse", {})
 
-    # Extract all array items from different categories
-    for category in ["3d_assets", "sim_ready", "materials", "environments", "workflows"]:
+    # New structure uses omni_* prefixes
+    categories = ["omni_3d_assets", "omni_sim_ready", "omni_materials", "omni_environments", "omni_workflows"]
+    for category in categories:
         for asset in omniverse_data.get(category, []):
-            assets.append(
-                AssetUrl(
-                    name=asset.get("name", "Unknown"),
-                    url=asset.get("url", ""),
-                    source_file="omniverse_assets.toml",
-                    category=category,
+            urls = asset.get("url", [])
+            if isinstance(urls, str):
+                urls = [urls]
+                
+            for url in urls:
+                assets.append(
+                    AssetUrl(
+                        name=asset.get("title", asset.get("name", "Unknown")),
+                        url=url,
+                        source_file="omniverse_assets.toml",
+                        category=category.replace("omni_", ""),
+                    )
                 )
-            )
     return assets
 
 
