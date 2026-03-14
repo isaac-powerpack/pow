@@ -1,7 +1,6 @@
 # This is example of asset profile file. 
 # The actual file will use this and empty all the value. Accept schema_version
 
-
 [profile]
 # Use ISO 8601 for precise state tracking and cache invalidation
 created_at = 2026-03-14T14:05:24Z
@@ -20,7 +19,7 @@ status = "ready"
 size_bytes = 2813200000
 aria2_gid = ""
 archive_files = ["./isaac-sim-assets-robots_and_sensors-5.1.0.zip"]
-extract_root_dirs = ["./robots_and_sensors/"]
+extract_info_file = ".asset-artifacts/isaac-sim-assets-robots_and_sensors-5.1.0.txt"
 
 [[group.asset]]
 name = "complete_pack"
@@ -32,7 +31,7 @@ archive_files = [
     "./isaac-sim-assets-complete-5.1.0.zip.002",
     "./isaac-sim-assets-complete-5.1.0.zip.003",
 ]
-extract_root_dirs = ["./complete_pack/"]
+extract_info_file = ".asset-artifacts/isaac-sim-assets-complete-5.1.0.txt"
 
 
 # =========================================================
@@ -47,7 +46,7 @@ status = "ready"
 size_bytes = 8804682956
 aria2_gid = ""
 archive_files = ["./Base_Materials_NVD@10013.zip"]
-extract_root_dirs = ["./base_materials/"]
+extract_info_file = ".asset-artifacts/Base_Materials_NVD@10013.txt"
 
 [[group.asset]]
 name = "vmaterials_2"
@@ -55,4 +54,4 @@ status = "downloading"
 size_bytes = 0
 aria2_gid = "9876543210abcdef"
 archive_files = ["./vMaterials_2_4_0_NVD@020240.zip"]
-extract_root_dirs = ["./vmaterials_2/"]
+extract_info_file = ".asset-artifacts/vMaterials_2_4_0_NVD@020240.txt"
