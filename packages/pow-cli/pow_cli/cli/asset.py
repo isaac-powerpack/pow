@@ -6,7 +6,7 @@ from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, DownloadColumn, TransferSpeedColumn, TimeRemainingColumn
 
 from ..common.utils import console
-from ..core.config import Config
+from ..core.models.pow_config import PowConfig
 from ..core.asset_manager import AssetManager
 
 @click.group(name="asset")
@@ -23,7 +23,7 @@ def asset_init(target):
     if not target:
         target = click.prompt("Enter target folder name to store local assets", default="assets")
 
-    config = Config()
+    config = PowConfig()
     manager = AssetManager(config)
     
     # 1. Ensure global folder exists
@@ -43,7 +43,7 @@ def asset_init(target):
 @click.option("--group", "-g", is_flag=True, help="Display group table with aggregated sizes")
 def asset_list(name, group):
     """Show available assets and their status."""
-    config = Config()
+    config = PowConfig()
     manager = AssetManager(config)
     assets = manager.list_assets()
 
@@ -123,7 +123,7 @@ def asset_list(name, group):
 @click.option("--keep", help="Path to store/keep the downloaded asset")
 def asset_add(name, keep):
     """Add a new asset (download and install)."""
-    config = Config()
+    config = PowConfig()
     manager = AssetManager(config)
     
     console.print(f"[bold blue]📦 Adding asset: [cyan]{name}[/cyan][/bold blue]")

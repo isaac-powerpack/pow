@@ -1,11 +1,11 @@
 from typing import List, Dict, Any, Optional
 from pathlib import Path
-from .config import Config
+from .models.pow_config import PowConfig
 
 class AssetManager:
     """Manages Isaac Sim and Omniverse assets."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: PowConfig):
         self.config = config
 
     def ensure_global_assets(self) -> Path:

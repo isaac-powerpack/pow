@@ -10,7 +10,8 @@ from rich.prompt import Confirm
 from rich.text import Text
 
 from ..common.utils import console
-from ..core.manager import Manager
+from ..core.models.pow_config import PowConfig
+from ..core.initializer import Initializer
 
 
 
@@ -72,7 +73,7 @@ def _step1_check_config(global_dir_name: str) -> bool:
     return True
 
 
-def _step2_check_existing_config(manager: Manager) -> bool:
+def _step2_check_existing_config(manager: Initializer) -> bool:
     """Ask whether to override an existing pow.toml. Returns override flag."""
     if not Path("pow.toml").exists():
         console.print(
@@ -98,7 +99,7 @@ def _step2_check_existing_config(manager: Manager) -> bool:
     return override
 
 
-def _step3_global_folder(manager: Manager, global_path):
+def _step3_global_folder(manager: Initializer, global_path):
     """Create the .pow global folder and print the result."""
     console.print(
         f"[bold blue][3/8] 📂 Global Folder:[/bold blue] Preparing [dim]{global_path}[/dim]..."
@@ -115,7 +116,7 @@ def _step3_global_folder(manager: Manager, global_path):
         )
 
 
-def _step4_download_isaacsim(manager: Manager) -> dict | None:
+def _step4_download_isaacsim(manager: Initializer) -> dict | None:
     """Download Isaac Sim with a Rich progress bar. Returns result dict or None on error."""
     console.print("[bold blue][4/8] 📦 Isaac Sim App:[/bold blue] Installing Isaac Sim 5.1.0...")
 
@@ -205,7 +206,7 @@ def _step4_download_isaacsim(manager: Manager) -> dict | None:
     return result
 
 
-def _step5_optimization(manager: Manager, isaacsim_path: str):
+def _step5_optimization(manager: Initializer, isaacsim_path: str):
     """Apply Isaac Sim post-install fixes."""
     console.print("[bold blue][5/8] ⚡ Optimization:[/bold blue] Applying Isaac Sim fixes...")
     with console.status("Fixing isaacsim.asset.browser cache file missing..."):
@@ -216,7 +217,7 @@ def _step5_optimization(manager: Manager, isaacsim_path: str):
         console.print("   [yellow]✔[/yellow] Cache file already exists.")
 
 
-def _step6_ros_integration(manager: Manager, global_dir_name: str, forced_value: bool | None = None) -> bool:
+def _step6_ros_integration(manager: Initializer, global_dir_name: str, forced_value: bool | None = None) -> bool:
     """Prompt for ROS integration and set it up. Returns whether ROS was enabled."""
     console.print("[bold blue][6/8] 🤖 ROS Integration:[/bold blue]")
     
@@ -272,7 +273,7 @@ def _step6_ros_integration(manager: Manager, global_dir_name: str, forced_value:
     return True
 
 
-def _step7_project_structure(manager: Manager):
+def _step7_project_structure(manager: Initializer):
     """Create local project folders and .gitignore."""
     console.print("[bold blue][7/8] 🏗️ Project Structure:[/bold blue] Creating local folders...")
     local_folders = ["exts", "scripts", ".modules", ".assets", "standalone"]
@@ -301,7 +302,7 @@ def _step7_project_structure(manager: Manager):
         console.print("   [yellow]✔[/yellow] .gitignore already exists. [dim]Kept existing.[/dim]")
 
 
-def _step8_finalize(manager: Manager, override_pow_toml: bool, ros_enabled: bool):
+def _step8_finalize(manager: Initializer, override_pow_toml: bool, ros_enabled: bool):
     """Generate pow.toml configuration."""
     console.print("[bold blue][8/8] ✅ Finalizing:[/bold blue] Generating configuration...")
     result = manager.create_pow_toml(override=override_pow_toml, enable_ros=ros_enabled)
@@ -318,7 +319,7 @@ def _step8_finalize(manager: Manager, override_pow_toml: bool, ros_enabled: bool
 @click.command(name="init")
 def init_cmd():
     """Initialize Isaac ROS project (Mockup with Rich)."""
-    manager = Manager()
+    manager = Initializer()
     config = manager.get_config_path()
     global_dir_name = config["global_dir_name"]
     global_path = config["global_path"]

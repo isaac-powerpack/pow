@@ -1,25 +1,28 @@
 import pytest
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
 from pathlib import Path
-from pow_cli.core.config import Config
+from pow_cli.core.models.pow_config import PowConfig
 
 @pytest.fixture
 def reset_config_singleton():
-    """Reset the Config singleton before and after tests."""
-    Config._instance = None
+    """Reset the PowConfig singleton before and after tests."""
+    PowConfig._instance = None
     yield
-    Config._instance = None
+    PowConfig._instance = None
 
 def test_singleton(tmp_path, monkeypatch, reset_config_singleton):
-    """Test that Config is a singleton."""
+    """Test that PowConfig is a singleton."""
     root = tmp_path / "project"
     root.mkdir()
     pow_toml = root / "pow.toml"
     pow_toml.write_text("[sim]\nversion='5.1.0'")
     monkeypatch.chdir(root)
     
-    c1 = Config()
-    c2 = Config()
+    c1 = PowConfig()
+    c2 = PowConfig()
     assert c1 is c2
 
 def test_find_project_root(tmp_path, monkeypatch, reset_config_singleton):
@@ -41,7 +44,7 @@ ext_folders = ["./exts"]
     
     monkeypatch.chdir(subdir)
     
-    config = Config()
+    config = PowConfig()
     assert config.project_root == root
     assert config.get("version") == "5.1.0"
     assert config.get("ext_folders") == ["./exts"]
@@ -67,7 +70,7 @@ custom_val = "perf_mode"
     pow_toml.write_text(content)
     monkeypatch.chdir(root)
     
-    config = Config()
+    config = PowConfig()
     
     # 1. Base default profile (maps to 'sim')
     assert config.get("version") == "5.1.0"
@@ -93,7 +96,7 @@ def test_no_config_found(tmp_path, monkeypatch, reset_config_singleton):
     empty_dir.mkdir()
     monkeypatch.chdir(empty_dir)
     
-    config = Config()
+    config = PowConfig()
     # instantiation should succeed to allow access to global paths
     assert config.global_dir_name == ".pow"
 
@@ -106,7 +109,7 @@ def test_global_dir_name_default(tmp_path, monkeypatch, reset_config_singleton):
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
     monkeypatch.chdir(empty_dir)
-    config = Config()
+    config = PowConfig()
     assert config.global_dir_name == ".pow"
 
 def test_global_dir_name_custom(tmp_path, monkeypatch, reset_config_singleton):
@@ -116,5 +119,5 @@ def test_global_dir_name_custom(tmp_path, monkeypatch, reset_config_singleton):
     pyproject = root / "pyproject.toml"
     pyproject.write_text('[tool.pow-cli]\nglobal_dir_name = ".custom_pow"')
     monkeypatch.chdir(root)
-    config = Config()
+    config = PowConfig()
     assert config.global_dir_name == ".custom_pow"

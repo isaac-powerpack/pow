@@ -12,17 +12,16 @@ from pathlib import Path
 import distro
 import tomlkit
 
-from .config import Config
+from .models.pow_config import PowConfig
 
 
-class Manager:
+class Initializer:
     """Handles the management and initialization process for Isaac Powerpack.
     
     This class is responsible for:
-    - Manage global directories
-    - Manage Project directories
     - Initialize project and global directory.
-    - Provide config pow.toml interface.
+    - download isaacsim and fix its initial issues
+    - setup isaacsim ros workspace
     """
 
     def __init__(self):
@@ -52,7 +51,7 @@ class Manager:
         try:
             distro_id = distro.id()
             distro_version = distro.version()
-            if distro_id != "ubuntu" or distro_version not in Config.SUPPORTED_UBUNTU_VERSIONS:
+            if distro_id != "ubuntu" or distro_version not in PowConfig.SUPPORTED_UBUNTU_VERSIONS:
                 distro_name = distro.name()
                 raise RuntimeError(
                     f"Unsupported OS: {distro_name} {distro_version}. "
@@ -77,8 +76,8 @@ class Manager:
             "global_path": self.config.global_path,
         }
 
-    def get_config(self) -> Config:
-        """Get the Config object representing pow.toml."""
+    def get_config(self) -> PowConfig:
+        """Get the PowConfig object representing pow.toml."""
         return self.config
 
     def get_isaacsim_path(self) -> Path | None:
@@ -88,7 +87,7 @@ class Manager:
         back to importing the ``isaacsim`` Python package. Returns None if
         Isaac Sim cannot be located.
         """
-        managed = self.config.global_path / "isaacsim" / Config.ISAACSIM_VERSION
+        managed = self.config.global_path / "isaacsim" / PowConfig.ISAACSIM_VERSION
         if managed.is_dir():
             return managed
 
@@ -136,14 +135,14 @@ class Manager:
         return {"global_existed": global_exists, "results": results}
 
     @property
-    def config(self) -> Config:
-        """Get the Config singleton, instantiating it efficiently."""
+    def config(self) -> PowConfig:
+        """Get the PowConfig singleton, instantiating it efficiently."""
         if self._config_instance is None:
-            self._config_instance = Config()
+            self._config_instance = PowConfig()
         return self._config_instance
 
     def read_config(self):
-        """Read configuration from an existing pow.toml file using the Config singleton."""
+        """Read configuration from an existing pow.toml file using the PowConfig singleton."""
         return self.config.data
 
     def fix_asset_browser_cache(self, isaacsim_path) -> bool:
@@ -240,8 +239,8 @@ class Manager:
 
         dest_dir = self.config.global_path / "isaacsim"
         dest_dir.mkdir(parents=True, exist_ok=True)
-        zip_path = dest_dir / Config.ISAACSIM_FILENAME
-        target_folder = dest_dir / Config.ISAACSIM_VERSION
+        zip_path = dest_dir / PowConfig.ISAACSIM_FILENAME
+        target_folder = dest_dir / PowConfig.ISAACSIM_VERSION
 
         if not mock and target_folder.exists():
             return {"status": "Already installed", "path": str(target_folder)}
@@ -348,7 +347,7 @@ class Manager:
                     progress_callback(blocknum * blocksize, totalsize)
 
             try:
-                urllib.request.urlretrieve(Config.ISAACSIM_URL, zip_path, reporthook)
+                urllib.request.urlretrieve(PowConfig.ISAACSIM_URL, zip_path, reporthook)
             except Exception as e:
                 if zip_path.exists():
                     zip_path.unlink()

@@ -1,28 +1,28 @@
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
-from pow_cli.core.manager import Manager
+from pow_cli.core.initializer import Initializer
 
 
 @pytest.fixture
 def mock_config(mocker):
-    """Return a mock Config object and inject it into every Manager instance."""
+    """Return a mock PowConfig object and inject it into every Initializer instance."""
     cfg = MagicMock()
     cfg.global_dir_name = ".pow"
     cfg.global_path = Path("/home/user/.pow")
-    mocker.patch.object(Manager, "config", new_callable=lambda: property(lambda self: cfg))
+    mocker.patch.object(Initializer, "config", new_callable=lambda: property(lambda self: cfg))
     return cfg
 
 
-class TestManager:
+class TestInitializer:
     def test_get_config_path(self, mock_config):
-        manager = Manager()
+        manager = Initializer()
         result = manager.get_config_path()
         assert result["global_dir_name"] == ".pow"
         assert result["global_path"] == Path("/home/user/.pow")
 
     def test_create_global_folder_new(self, mocker, mock_config):
-        manager = Manager()
+        manager = Initializer()
 
         # Mock existence: global doesn't exist
         mocker.patch.object(Path, "exists", return_value=False)
@@ -37,7 +37,7 @@ class TestManager:
         assert all(r["status"] == "Created" for r in init_data["results"])
 
     def test_create_global_folder_exists_skips_subfolders(self, mocker, mock_config):
-        manager = Manager()
+        manager = Initializer()
         global_path = mock_config.global_path
 
         # Mock existence: global EXISTS, subfolders DON'T
@@ -57,7 +57,7 @@ class TestManager:
         assert all(r["status"] == "Skipped" for r in init_data["results"])
 
     def test_create_global_folder_exists_some_subfolders(self, mocker, mock_config):
-        manager = Manager()
+        manager = Initializer()
         global_path = mock_config.global_path
 
         # Mock existence: global EXISTS, some subfolders EXIST

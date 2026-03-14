@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from click.testing import CliRunner
 
-from pow_cli.core.config import Config
+from pow_cli.core.models.pow_config import PowConfig
 from pow_cli.core.runner import Runner
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def mock_config(mocker):
         return data.get(key, default)
         
     cfg.get.side_effect = mock_get
-    mocker.patch("pow_cli.core.runner.Config", return_value=cfg)
+    mocker.patch("pow_cli.core.runner.PowConfig", return_value=cfg)
     return cfg
 
 def test_build_launch_command_default(mock_config, mocker):

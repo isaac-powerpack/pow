@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from .config import Config
+from .models.pow_config import PowConfig
 
 console = Console()
 
@@ -104,7 +104,7 @@ class Runner:
             )
 
     @staticmethod
-    def source_isaacsim_ros_workspace(config: Config) -> dict:
+    def source_isaacsim_ros_workspace(config: PowConfig) -> dict:
         """Check and prepare ROS workspace environment variables."""
         ros_ws_path = config.ros_ws_path
         ros_distro = config.ros_distro
@@ -139,12 +139,12 @@ class Runner:
 
     @staticmethod
     def build_launch_command(
-        config: Config,
+        config: PowConfig,
         profile_name: str = "default",
         extra_args: list[str] | None = None,
     ) -> list[str]:
         """Build the Isaac Sim launch command from configuration."""
-        isaacsim_version = config.get("version", Config.ISAACSIM_VERSION)
+        isaacsim_version = config.get("version", PowConfig.ISAACSIM_VERSION)
         isaacsim_dir = config.global_path / "isaacsim" / isaacsim_version
         
         launch_script = isaacsim_dir / "isaac-sim.sh"
@@ -174,7 +174,7 @@ class Runner:
     @staticmethod
     def run_isaacsim(profile: str = "default", extra_args: list[str] | None = None) -> None:
         """Run an Isaac Sim App based on profile."""
-        config = Config()
+        config = PowConfig()
         if config.project_root is None:
             raise click.ClickException("Not initialized. Run `pow init` first.")
 

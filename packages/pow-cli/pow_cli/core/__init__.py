@@ -1,5 +1,5 @@
-from .config import Config
-from .manager import Manager
+from .models.pow_config import PowConfig
+from .initializer import Initializer
 from .runner import Runner
 
-__all__ = ["Config", "Manager", "Runner"]
+__all__ = ["PowConfig", "Initializer", "Runner"]

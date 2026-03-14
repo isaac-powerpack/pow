@@ -8,21 +8,21 @@ from pow_cli.cli.init import init_cmd
 class TestInitCmd:
     @pytest.fixture(autouse=True)
     def mock_manager_methods(self, mocker):
-        """Mock common Manager methods used by init_cmd to avoid side effects."""
+        """Mock common Initializer methods used by init_cmd to avoid side effects."""
         self.mock_create_global = mocker.patch(
-            "pow_cli.core.manager.Manager.create_global_folder",
+            "pow_cli.core.initializer.Initializer.create_global_folder",
             return_value={"global_existed": False, "results": []}
         )
         self.mock_download = mocker.patch(
-            "pow_cli.core.manager.Manager.download_isaacsim",
+            "pow_cli.core.initializer.Initializer.download_isaacsim",
             return_value={"status": "Already installed", "path": "/tmp/isaacsim"}
         )
         self.mock_fix_cache = mocker.patch(
-            "pow_cli.core.manager.Manager.fix_asset_browser_cache",
+            "pow_cli.core.initializer.Initializer.fix_asset_browser_cache",
             return_value=True
         )
         self.mock_setup_ros = mocker.patch(
-            "pow_cli.core.manager.Manager.setup_ros_workspace",
+            "pow_cli.core.initializer.Initializer.setup_ros_workspace",
             return_value={
                 "status": "success",
                 "ros_distro": "humble",
@@ -31,12 +31,12 @@ class TestInitCmd:
             }
         )
         self.mock_setup_project = mocker.patch(
-            "pow_cli.core.manager.Manager.setup_project_structure",
+            "pow_cli.core.initializer.Initializer.setup_project_structure",
             return_value={"results": []}
         )
-        self.mock_read_config = mocker.patch("pow_cli.core.manager.Manager.read_config")
+        self.mock_read_config = mocker.patch("pow_cli.core.initializer.Initializer.read_config")
         self.mock_create_pow_toml = mocker.patch(
-            "pow_cli.core.manager.Manager.create_pow_toml",
+            "pow_cli.core.initializer.Initializer.create_pow_toml",
             return_value={"status": "Created", "path": "pow.toml"}
         )
         self.mock_sleep = mocker.patch("time.sleep")
