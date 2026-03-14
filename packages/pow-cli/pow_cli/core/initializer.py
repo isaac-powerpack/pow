@@ -13,6 +13,7 @@ import distro
 import tomlkit
 
 from .models.pow_config import PowConfig
+from .models.system_config import SystemConfig
 
 
 class Initializer:
@@ -133,6 +134,22 @@ class Initializer:
                 })
 
         return {"global_existed": global_exists, "results": results}
+
+    def create_system_toml(self) -> dict:
+        """Create system.toml in the global folder if it does not already exist."""
+        system_toml_path = self.config.global_path / "system.toml"
+        if system_toml_path.exists():
+            return {"status": "Existed", "path": str(system_toml_path)}
+
+        system_config = SystemConfig.default()
+        doc = tomlkit.document()
+        for section, values in system_config.to_dict().items():
+            table = tomlkit.table()
+            for k, v in values.items():
+                table.add(k, v)
+            doc.add(section, table)
+        system_toml_path.write_text(tomlkit.dumps(doc))
+        return {"status": "Created", "path": str(system_toml_path)}
 
     @property
     def config(self) -> PowConfig:

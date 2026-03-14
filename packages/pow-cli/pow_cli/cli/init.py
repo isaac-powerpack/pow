@@ -115,6 +115,16 @@ def _step3_global_folder(manager: Initializer, global_path):
             f"   [green]✔[/green] Global directory [dim]{global_path}[/dim] prepared successfully."
         )
 
+    system_toml_result = manager.create_system_toml()
+    if system_toml_result["status"] == "Created":
+        console.print(
+            f"   [green]✔[/green] Created system.toml: [dim]{system_toml_result['path']}[/dim]"
+        )
+    else:
+        console.print(
+            f"   [yellow]✔[/yellow] system.toml already exists: [dim]{system_toml_result['path']}[/dim]"
+        )
+
 
 def _step4_download_isaacsim(manager: Initializer) -> dict | None:
     """Download Isaac Sim with a Rich progress bar. Returns result dict or None on error."""
