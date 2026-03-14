@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from pathlib import Path
 from .models.pow_config import PowConfig
 
@@ -7,31 +7,6 @@ class AssetManager:
 
     def __init__(self, config: PowConfig):
         self.config = config
-
-    def ensure_global_assets(self) -> Path:
-        """Mock ensuring the global assets directory exists."""
-        return self.config.global_path / "assets"
-
-    def initialize_local_assets(self, target_folder_name: str) -> Dict[str, Any]:
-        """
-        Mock initializing local asset storage and link it to the global system.
-        No actual filesystem operations are performed in this mock phase.
-        """
-        project_root = self.config.project_root or Path.cwd()
-        local_assets_path = (project_root / target_folder_name).resolve()
-        
-        global_assets_dir = self.config.global_path / "assets"
-        symlink_path = global_assets_dir / project_root.name
-        config_path = self.config.global_path / "assets_config.toml"
-        profile_path = local_assets_path / "assets_profile.toml"
-
-        return {
-            "local_path": str(local_assets_path),
-            "global_assets_path": str(global_assets_dir),
-            "symlink_path": str(symlink_path),
-            "config_file": str(config_path),
-            "profile_file": str(profile_path)
-        }
 
     def _parse_size(self, size_str: str) -> float:
         """Parse size string like '2.62 GB' or '891MB' into GB float."""
@@ -63,7 +38,6 @@ class AssetManager:
         Listing available assets and their status from the registry.
         """
         import tomllib
-        from pathlib import Path
 
         # Get path to the data directory relative to this file
         data_dir = Path(__file__).parent.parent / "data" / "asset-registry"
@@ -124,18 +98,3 @@ class AssetManager:
                         })
 
         return assets
-
-    def add_asset(self, name: str, keep_path: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Mock adding an asset (download and extraction).
-        """
-        # Simulate check if already installed
-        if name == "isaac-sim-5.1.0":
-            return {"status": "already_installed", "message": f"Asset '{name}' is already installed."}
-
-        return {
-            "status": "success",
-            "name": name,
-            "path": keep_path or str(Path.home() / "Downloads"),
-            "extracted_to": str(self.config.global_path / "assets" / name)
-        }
