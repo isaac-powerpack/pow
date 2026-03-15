@@ -3,10 +3,38 @@
 from __future__ import annotations
 
 import os
+import importlib.resources
 import tomlkit
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List
 from .models.pow_config import PowConfig
 from .models.system_config import SystemConfig
+from .models.asset_profile import AssetProfile
+
+
+# ── Asset list data structures ────────────────────────────────────────────────
+
+
+@dataclass
+class AssetListEntry:
+    """A single registry asset enriched with live profile data (if available)."""
+
+    group_name: str
+    title: str
+    name: str
+    size: str             # human-readable e.g. '2.62 GB'
+    status: str = "pending"
+    completion_pct: float = 0.0
+
+
+@dataclass
+class AssetListData:
+    """Result of get_asset_list_data(), consumed by the CLI."""
+
+    local_path: str                              # empty = not configured
+    symlink_ok: bool                             # symlink exists → real dir
+    entries: List[AssetListEntry] = field(default_factory=list)
 
 
 class AssetError(Exception):
@@ -17,6 +45,27 @@ class AssetManager:
     """Handles the management of assets, including configuration of local asset paths."""
 
     OMNIVERSE_TOML_PATH = Path.home() / ".nvidia-omniverse" / "config" / "omniverse.toml"
+    
+    # Registry configurations
+    REGISTRIES = [
+        {
+            "file": "isaacsim_assets_5_1_0.toml",
+            "root_key": "isaacsim_assets",
+            "group_keys": ["isaacsim_5_1_0"]
+        },
+        {
+            "file": "omniverse_assets.toml",
+            "root_key": "omniverse",
+            "group_keys": [
+                "omni_3d_assets", 
+                "omni_sim_ready", 
+                "omni_materials", 
+                "omni_environments", 
+                "omni_workflows"
+            ]
+        }
+    ]
+    
     POW_ASSETS_ALIAS = "pow-assets"
 
     # Keys to remove from [settings] in isaacsim.exp.base.kit on unset.
@@ -63,6 +112,80 @@ class AssetManager:
     def is_asset_configured(self) -> bool:
         """Return True if [asset] is already set in system.toml."""
         return bool(self.get_local_asset_path())
+
+    # ── get_asset_list_data ──────────────────────────────────────────────────
+
+    def get_asset_list_data(self) -> AssetListData:
+        """Return registry entries enriched with live profile data from all registries."""
+        local_path = self.get_local_asset_path()
+        symlink = self.get_assets_symlink_path()
+        symlink_ok = symlink.is_symlink() and symlink.resolve().is_dir()
+
+        # Load registries
+        try:
+            import tomllib
+        except ImportError:
+            import tomli as tomllib  # type: ignore[no-redef]
+
+        entries: list[AssetListEntry] = []
+        
+        # Load profile once
+        profile: AssetProfile | None = None
+        if local_path and symlink_ok:
+            profile_path = symlink.resolve() / "asset-profile.toml"
+            if profile_path.exists():
+                try:
+                    profile = AssetProfile.from_file(profile_path)
+                except Exception:
+                    profile = None
+
+        for reg_config in self.REGISTRIES:
+            try:
+                registry_ref = (
+                    importlib.resources.files("pow_cli")
+                    .joinpath("data")
+                    .joinpath("asset-registry")
+                    .joinpath(reg_config["file"])
+                )
+                registry_bytes = registry_ref.read_bytes()
+                registry = tomllib.loads(registry_bytes.decode())
+                
+                root = registry.get(reg_config["root_key"], {})
+                
+                for group_key in reg_config["group_keys"]:
+                    raw_assets = root.get(group_key, [])
+                    
+                    for raw in raw_assets:
+                        name = raw.get("name", "")
+                        status = "not-downloaded"
+                        completion_pct = 0.0
+
+                        if profile:
+                            # Try to find in profile
+                            asset_entry = profile.get_asset(group_key, name)
+                            if asset_entry:
+                                status = asset_entry.status
+                                completion_pct = asset_entry.completion_pct
+
+                        entries.append(
+                            AssetListEntry(
+                                group_name=group_key,
+                                title=raw.get("title", name),
+                                name=name,
+                                size=raw.get("size", "—"),
+                                status=status,
+                                completion_pct=completion_pct,
+                            )
+                        )
+            except Exception:
+                # Skip registries that fail to load
+                continue
+
+        return AssetListData(
+            local_path=local_path,
+            symlink_ok=symlink_ok,
+            entries=entries,
+        )
 
     # ── set_local_asset_path ─────────────────────────────────────────────────
 

@@ -19,7 +19,7 @@ class AssetEntry:
     ------
     name             : Unique identifier within the group.
     status           : Lifecycle state — one of:
-                       "pending" | "downloading" | "ready" | "error"
+                       "not-downloaded" | "in-progress" | "downloaded" | "error"
     total_bytes      : Expected total size once complete (0 = unknown).
     downloaded_bytes : Bytes received so far.
     aria2_gid        : Active aria2 download GID; empty when not downloading.
@@ -43,7 +43,7 @@ class AssetEntry:
     def from_dict(cls, data: dict) -> AssetEntry:
         return cls(
             name=data["name"],
-            status=data.get("status", "pending"),
+            status=data.get("status", "not-downloaded"),
             total_bytes=data.get("total_bytes", 0),
             downloaded_bytes=data.get("downloaded_bytes", 0),
             archive_files=data.get("archive_files", []),

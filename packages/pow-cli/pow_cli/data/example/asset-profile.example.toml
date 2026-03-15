@@ -18,11 +18,11 @@ artifacts_dir = ".asset-artifacts"
 [[group]]
 name = "isaacsim_5_1_0"
 
-# status: "pending" | "downloading" | "ready" | "error"
+# status: "not-downloaded" | "in-progress" | "downloaded" | "error"
 
 [[group.asset]]
 name = "robots_and_sensors"
-status = "ready"
+status = "in-progress"
 total_bytes = 2813200000
 downloaded_bytes = 2813200000
 # aria2_gid omitted — not actively downloading
@@ -31,7 +31,7 @@ extract_info_file = "isaac-sim-assets-robots_and_sensors-5.1.0.txt"
 
 [[group.asset]]
 name = "complete_pack"
-status = "downloading"
+status = "in-progress"
 total_bytes = 0                # Unknown until download begins
 downloaded_bytes = 0
 aria2_gid = "a1b2c3d4e5f6g7h8"
@@ -60,7 +60,7 @@ extract_info_file = "Base_Materials_NVD@10013.txt"
 
 [[group.asset]]
 name = "vmaterials_2"
-status = "downloading"
+status = "in-progress"
 total_bytes = 0
 downloaded_bytes = 0
 aria2_gid = "9876543210abcdef"

@@ -117,6 +117,173 @@ def unset_cmd():
 
 
 @asset_group.command(name="list")
-def list_cmd():
-    """List available assets (placeholder)."""
-    console.print("[yellow]! List command — not yet implemented.[/yellow]")
+@click.option("-n", "--name", "view", flag_value="name", default=True, help="List by asset name (default).")
+@click.option("-g", "--group", "view", flag_value="group", help="List aggregated by group.")
+def list_cmd(view: str):
+    """List available Isaac Sim 5.1.0 assets.
+
+    \b
+    Views:
+      -n / --name   Show each asset individually, grouped by header (default).
+      -g / --group  Show one row per group with summed size.
+    """
+    manager = AssetManager()
+    try:
+        data = manager.get_asset_list_data()
+    except Exception as e:
+        console.print(Text.from_markup("[bold red]✘ Failed to load asset data:[/bold red] ") + Text(str(e)))
+        raise SystemExit(1)
+
+    # ── Header: local asset config status ────────────────────────────────────
+    if data.local_path:
+        symlink_badge = (
+            "[bold green]symlink ✔[/bold green]"
+            if data.symlink_ok
+            else "[bold red]symlink ✘[/bold red]"
+        )
+        header_line = (
+            f"[bold green]●[/bold green]  [bold]{escape(data.local_path)}[/bold]"
+            f"  [dim]({symlink_badge}[dim])[/dim]"
+        )
+    else:
+        header_line = "[dim]○  Local assets not configured  —  run [bold]pow asset set <path>[/bold] to configure[/dim]"
+
+    console.print()
+    console.print(f"  {header_line}")
+    console.print()
+
+    if view == "name":
+        _print_name_view(data)
+    else:
+        _print_group_view(data)
+
+
+# ── View renderers ────────────────────────────────────────────────────────────
+
+
+def _status_style(status: str, compact: bool = False) -> str:
+    """Return a Rich-markup-wrapped status string."""
+    style_map = {
+        "downloaded":     "green",
+        "in-progress":    "yellow",
+        "not-downloaded": "dim",
+        "partial":        "yellow",
+        "error":          "bold red",
+        # Snippet mappings
+        "installed":      "green",
+        "not loaded":     "dim",
+    }
+    
+    clean_status = status.lower()
+    # Map internal statuses to user-requested snippets labels if needed
+    label = status
+    if clean_status == "downloaded": label = "Installed"
+    elif clean_status == "not-downloaded": label = "Not Loaded"
+    elif clean_status == "in-progress": label = "In-Progress"
+    
+    color = style_map.get(clean_status, style_map.get(label.lower(), "white"))
+    
+    if compact:
+        return f"[{color}]{label}[/{color}]"
+    return f"[bold {color}]{escape(label)}[/bold {color}]" if "bold" not in color else f"[{color}]{escape(label)}[/{color}]"
+
+
+def _pct_str(pct: float) -> str:
+    if pct <= 0:
+        return "[dim]—[/dim]"
+    if pct >= 100:
+        return "[green]100%[/green]"
+    return f"[yellow]{pct:.0f}%[/yellow]"
+
+
+def _print_name_view(data: "AssetListData") -> None:  # noqa: F821
+    from itertools import groupby
+    from collections import defaultdict
+    
+    table = Table(title="Available Assets (by Name)")
+    table.add_column("Asset Name", style="cyan")
+    table.add_column("Status", style="green")
+    table.add_column("Completion", style="yellow")
+    table.add_column("Size", style="blue")
+
+    sorted_entries = sorted(data.entries, key=lambda e: (e.group_name, e.title))
+    
+    for group_name, group_iter in groupby(sorted_entries, key=lambda e: e.group_name):
+        group_assets = list(group_iter)
+        
+        names = [f"[bold magenta]{escape(group_name)}[/bold magenta]"]
+        statuses = [""]
+        completions = [""]
+        sizes = [""]
+
+        for asset in sorted(group_assets, key=lambda e: e.title):
+            names.append(f"  {escape(asset.title)}")
+            
+            # Use compact style for multi-line block
+            statuses.append(_status_style(asset.status, compact=True))
+            completions.append(_pct_str(asset.completion_pct))
+            sizes.append(escape(asset.size))
+
+        table.add_row(
+            "\n".join(names),
+            "\n".join(statuses),
+            "\n".join(completions),
+            "\n".join(sizes),
+            end_section=True
+        )
+
+    console.print(table)
+    console.print()
+
+
+def _print_group_view(data: "AssetListData") -> None:  # noqa: F821
+    from itertools import groupby
+
+    table = Table(title="Asset Groups (Aggregated)")
+    table.add_column("Group Name", style="magenta")
+    table.add_column("Status", style="green")
+    table.add_column("Completion", style="yellow")
+    table.add_column("Size", style="blue")
+
+    sorted_entries = sorted(data.entries, key=lambda e: e.group_name)
+
+    for group_name, group_iter in groupby(sorted_entries, key=lambda e: e.group_name):
+        group_entries = list(group_iter)
+
+        total_assets = len(group_entries)
+        installed_count = sum(1 for e in group_entries if e.status.lower() == "downloaded")
+        in_progress_count = sum(1 for e in group_entries if e.status.lower() == "in-progress")
+
+        if installed_count == total_assets:
+            status = "Installed"
+        elif installed_count > 0 or in_progress_count > 0:
+            status = "Partial"
+        else:
+            status = "Not Loaded"
+
+        percent = int((installed_count / total_assets) * 100) if total_assets > 0 else 0
+
+        # Aggregate size
+        total_gb = 0.0
+        for e in group_entries:
+            try:
+                s = e.size.upper()
+                if "GB" in s:
+                    total_gb += float(s.replace("GB", "").strip())
+                elif "MB" in s:
+                    total_gb += float(s.replace("MB", "").strip()) / 1024
+                else:
+                    total_gb += float(s.split()[0])
+            except (ValueError, IndexError):
+                pass
+        size_str = f"{total_gb:.2f} GB" if total_gb > 0 else "—"
+
+        table.add_row(
+            escape(group_name),
+            _status_style(status, compact=True),
+            _pct_str(percent),
+            size_str
+        )
+
+    console.print(table)
+    console.print()
