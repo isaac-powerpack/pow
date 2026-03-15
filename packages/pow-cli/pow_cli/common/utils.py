@@ -2,4 +2,5 @@
 
 from rich.console import Console
 
-console = Console()
+console = Console(width=60)
+console.clear()
