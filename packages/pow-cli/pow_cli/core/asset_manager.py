@@ -68,14 +68,11 @@ class AssetManager:
     
     POW_ASSETS_ALIAS = "pow-assets"
 
-    # Keys to remove from [settings] in isaacsim.exp.base.kit on unset.
-    # Dotted keys that contain special chars must be quoted per TOML spec.
-    _KIT_SETTINGS_KEYS_TO_UNSET = (
-        'exts."isaacsim.asset.browser".visible_after_startup',
-        "persistent.isaac.asset_root.default",
-        'exts."isaacsim.gui.content_browser".folders',
-        'exts."isaacsim.asset.browser".folders',
-    )
+
+
+    # Sentinel comment used to detect an existing patch block
+    _KIT_PATCH_START = "# Local asset settings (added by pow cli)"
+    _KIT_PATCH_END   = "# End: Local asset settings (added by pow cli)"
 
     def __init__(self):
         self._config = PowConfig()
@@ -260,7 +257,7 @@ class AssetManager:
         1. Remove the .pow/assets symlink (if it exists).
         2. Clear [asset] config in system.toml (reset to defaults).
         3. Remove all entries under [alias] in omniverse.toml.
-        4. Remove specific keys from [settings] in isaacsim.exp.base.kit.
+        4. Remove the pow patch block from isaacsim.exp.base.kit (if present).
 
         Returns:
             A dict mapping step label → outcome message (for CLI feedback).
@@ -305,18 +302,16 @@ class AssetManager:
         except Exception as exc:
             results["omniverse.toml [alias]"] = f"Failed: {exc}"
 
-        # Step 4 — Remove specific keys from isaacsim.exp.base.kit [settings]
+        # Step 4 — Remove pow patch block from isaacsim.exp.base.kit (silently skipped if absent)
         try:
-            removed_keys = self._unset_kit_settings()
-            if removed_keys:
-                results["isaacsim.exp.base.kit [settings]"] = (
-                    f"Removed {len(removed_keys)} key(s): {', '.join(removed_keys)}"
-                )
+            removed = self.unpatch_isaacsim_kit()
+            if removed:
+                results["isaacsim.exp.base.kit patch"] = "Removed"
                 any_action = True
             else:
-                results["isaacsim.exp.base.kit [settings]"] = "No matching keys — skipped"
+                results["isaacsim.exp.base.kit patch"] = "Patch block not found — skipped"
         except Exception as exc:
-            results["isaacsim.exp.base.kit [settings]"] = f"Failed: {exc}"
+            results["isaacsim.exp.base.kit patch"] = f"Failed: {exc}"
 
         if not any_action:
             raise AssetError(
@@ -327,6 +322,76 @@ class AssetManager:
         return results
 
     # ── Private helpers ───────────────────────────────────────────────────────
+
+    def patch_isaacsim_kit(self, use_local_path: str) -> bool:
+        """Append local asset settings block to isaacsim.exp.base.kit.
+
+        Uses plain string manipulation — no tomlkit / tomllib involved.
+
+        Args:
+            use_local_path: Absolute path to the local assets root directory (unused
+                for path values — the symlink is always used so the kit config stays
+                portable across path changes).
+
+        Returns:
+            True if the file was patched, False if it was already patched.
+
+        Raises:
+            AssetError: If the .kit file does not exist.
+        """
+        kit_path = self.get_kit_path()
+        if not kit_path.exists():
+            raise AssetError(
+                f"Kit file not found: '{kit_path}'\n"
+                "Make sure Isaac Sim is installed under the pow global directory."
+            )
+
+        existing = kit_path.read_text(encoding="utf-8")
+        if self._KIT_PATCH_START in existing:
+            return False  # Already patched — skip
+
+        # Always use the symlink so the kit config doesn't embed the raw source path
+        assets_root = str(self.get_assets_symlink_path())
+        isaac_root = f"{assets_root}/Assets/Isaac/{PowConfig.ISAACSIM_VERSION}/Isaac"
+
+        folders = [
+            f"{isaac_root}/Robots",
+            f"{isaac_root}/People",
+            f"{isaac_root}/IsaacLab",
+            f"{isaac_root}/Props",
+            f"{isaac_root}/Environments",
+            f"{isaac_root}/Materials",
+            f"{isaac_root}/Samples",
+            f"{isaac_root}/Sensors",
+        ]
+
+        def _fmt_folder_list(items: list[str]) -> str:
+            lines = ["    ["]
+            for item in items:
+                lines.append(f'        "{item}",')
+            lines.append("    ]")
+            return "\n".join(lines)
+
+        folder_block = _fmt_folder_list(folders)
+
+        patch_block = (
+            "\n"
+            f"{self._KIT_PATCH_START}\n"
+            "[settings]\n"
+            f'exts."isaacsim.asset.browser".visible_after_startup = true\n'
+            f'persistent.isaac.asset_root.default = "{assets_root}/Assets/Isaac/{PowConfig.ISAACSIM_VERSION}"\n'
+            f'exts."isaacsim.gui.content_browser".folders =\n'
+            f"{folder_block}\n"
+            "\n"
+            f'exts."isaacsim.asset.browser".folders =\n'
+            f"{folder_block}\n"
+            f"{self._KIT_PATCH_END}\n"
+        )
+
+        with kit_path.open("a", encoding="utf-8") as fh:
+            fh.write(patch_block)
+
+        return True
 
     def _write_system_toml(self, abs_path: Path) -> None:
         """Write or update [asset] section in system.toml."""
@@ -385,7 +450,7 @@ class AssetManager:
         if "alias" not in doc:
             doc.add("alias", tomlkit.table())
 
-        doc["alias"][self.POW_ASSETS_ALIAS] = str(abs_path)
+        doc["alias"][self.POW_ASSETS_ALIAS] = str(self.get_assets_symlink_path())
         toml_path.write_text(tomlkit.dumps(doc))
 
     def _clear_omniverse_aliases(self) -> bool:
@@ -402,33 +467,84 @@ class AssetManager:
         toml_path.write_text(tomlkit.dumps(doc))
         return True
 
-    def _unset_kit_settings(self) -> list[str]:
-        """Remove specific keys from [settings] in isaacsim.exp.base.kit.
+    # S3 URL keys added by the isaacsim alias-support flag
+    _ISAACSIM_S3_ALIAS_KEYS = (
+        "http://omniverse-content-production.s3.us-west-2.amazonaws.com",
+        "https://omniverse-content-production.s3.us-west-2.amazonaws.com",
+        "http://omniverse-content-production.s3-us-west-2.amazonaws.com",
+        "https://omniverse-content-production.s3-us-west-2.amazonaws.com",
+    )
 
-        Uses tomlkit to parse and edit the file in-place.
-        Returns a list of keys that were actually removed.
+    # S3 URL keys added by the sim-ready alias-support flag
+    _SIM_READY_S3_ALIAS_KEYS = (
+        "http://omniverse-content-staging.s3.us-west-2.amazonaws.com",
+        "https://omniverse-content-staging.s3.us-west-2.amazonaws.com",
+    )
+
+    def _write_s3_aliases(self, keys: tuple[str, ...]) -> None:
+        """Write the given S3 URL keys → assets symlink into omniverse.toml [alias]."""
+        toml_path = self.OMNIVERSE_TOML_PATH
+        toml_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if toml_path.exists():
+            doc = tomlkit.parse(toml_path.read_text())
+        else:
+            doc = tomlkit.document()
+
+        if "alias" not in doc:
+            doc.add("alias", tomlkit.table())
+
+        symlink_path = str(self.get_assets_symlink_path())
+        for url in keys:
+            doc["alias"][url] = symlink_path
+
+        toml_path.write_text(tomlkit.dumps(doc))
+
+    def register_isaacsim_s3_aliases(self) -> None:
+        """Add Isaac Sim production S3 URL → assets symlink mappings to omniverse.toml."""
+        self._write_s3_aliases(self._ISAACSIM_S3_ALIAS_KEYS)
+
+    def register_sim_ready_s3_aliases(self) -> None:
+        """Add Omniverse staging S3 URL → assets symlink mappings to omniverse.toml."""
+        self._write_s3_aliases(self._SIM_READY_S3_ALIAS_KEYS)
+
+    def unpatch_isaacsim_kit(self) -> bool:
+        """Remove the pow-added settings block from isaacsim.exp.base.kit.
+
+        Uses plain string manipulation — no tomlkit / tomllib involved.
+        Strips from the _KIT_PATCH_START sentinel line through the _KIT_PATCH_END
+        sentinel line (inclusive), including any leading blank line before the block.
+
+        Returns:
+            True if the block was found and removed, False if it was not present.
         """
         kit_path = self.get_kit_path()
         if not kit_path.exists():
-            return []
+            return False
 
-        doc = tomlkit.parse(kit_path.read_text())
+        text = kit_path.read_text(encoding="utf-8")
+        if self._KIT_PATCH_START not in text:
+            return False  # Nothing to remove
 
-        settings = doc.get("settings")
-        if settings is None:
-            return []
+        start_idx = text.find(self._KIT_PATCH_START)
+        end_idx   = text.find(self._KIT_PATCH_END, start_idx)
+        if end_idx == -1:
+            return False  # Malformed patch — leave the file untouched
 
-        removed: list[str] = []
+        end_idx += len(self._KIT_PATCH_END)
 
-        for dotted_key in self._KIT_SETTINGS_KEYS_TO_UNSET:
-            # Walk the nested tomlkit structure using the dotted key segments.
-            # Keys like exts."isaacsim.asset.browser".visible_after_startup
-            # need careful splitting that respects quoted segments.
-            segments = _split_dotted_key(dotted_key)
-            _delete_nested(settings, segments, removed, dotted_key)
+        # Consume any trailing newline after the end sentinel
+        if end_idx < len(text) and text[end_idx] == "\n":
+            end_idx += 1
 
-        kit_path.write_text(tomlkit.dumps(doc))
-        return removed
+        # Also strip any blank line immediately before the patch block
+        pre = text[:start_idx]
+        if pre.endswith("\n"):
+            pre = pre.rstrip("\n") + "\n"
+
+        new_text = pre + text[end_idx:]
+        kit_path.write_text(new_text, encoding="utf-8")
+        return True
 
 
 # ── Module-level helpers ──────────────────────────────────────────────────────

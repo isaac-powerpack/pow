@@ -15,7 +15,19 @@ def asset_group():
 
 @asset_group.command(name="set")
 @click.argument("assets_path")
-def set_cmd(assets_path: str):
+@click.option(
+    "-a",
+    "--alias-support",
+    "alias_support",
+    multiple=True,
+    metavar="APP",
+    help=(
+        "Apply alias/patch support for the specified app (repeatable). "
+        "Supported: isaacsim, simready, none. "
+        "Defaults to all (isaacsim + simready) when omitted."
+    ),
+)
+def set_cmd(assets_path: str, alias_support: tuple[str, ...]):
     """Set the local asset path for pow.
 
     \b
@@ -27,7 +39,34 @@ def set_cmd(assets_path: str):
       2. Creates a symlink at ~/.pow/assets → ASSETS_PATH.
       3. Writes the [asset] config in ~/.pow/system.toml.
       4. Registers a 'pow-assets' alias in omniverse.toml.
+      5. Applies alias support (default: all):
+           isaacsim  — patches isaacsim.exp.base.kit + 4 production S3 aliases.
+           simready — adds 2 staging S3 aliases to omniverse.toml.
+           none      — skips all alias patching.
     """
+    _SUPPORTED_ALIAS_APPS = {"isaacsim", "simready", "none"}
+
+    raw = {a.lower() for a in alias_support}
+    unknown = raw - _SUPPORTED_ALIAS_APPS
+    if unknown:
+        console.print(
+            Panel(
+                f"[bold red]✘[/bold red]  Unknown alias support target(s): {', '.join(sorted(unknown))}\n"
+                f"Supported values: {', '.join(sorted(_SUPPORTED_ALIAS_APPS))}",
+                title="[bold red]Asset Error[/bold red]",
+                border_style="red",
+            )
+        )
+        raise SystemExit(1)
+
+    # No -a flag → default to all; -a none → skip all
+    if not raw:
+        apps = {"isaacsim", "simready"}
+    elif "none" in raw:
+        apps: set[str] = set()
+    else:
+        apps = raw
+
     manager = AssetManager()
     console.print()
     try:
@@ -39,6 +78,33 @@ def set_cmd(assets_path: str):
         details.add_row("Assets path     :", f"[bold cyan]{abs_path}[/bold cyan]")
         details.add_row("Symlink         :", f"[dim]{manager.get_assets_symlink_path()}[/dim]")
         details.add_row("Assets alias    :", f"[dim]{manager.POW_ASSETS_ALIAS}[/dim]")
+
+        if "isaacsim" in apps:
+            try:
+                patched = manager.patch_isaacsim_kit(abs_path)
+                kit_status = (
+                    "[green]Patched[/green]"
+                    if patched
+                    else "[dim]Already patched — skipped[/dim]"
+                )
+            except AssetError as kit_err:
+                kit_status = f"[yellow]Skipped:[/yellow] {escape(str(kit_err))}"
+            details.add_row("isaacsim.exp.base.kit :", kit_status)
+
+            try:
+                manager.register_isaacsim_s3_aliases()
+                s3_status = "[green]Registered (4 production S3 URLs → assets symlink)[/green]"
+            except Exception as s3_err:
+                s3_status = f"[red]Failed:[/red] {escape(str(s3_err))}"
+            details.add_row("omniverse.toml (isaacsim):", s3_status)
+
+        if "simready" in apps:
+            try:
+                manager.register_sim_ready_s3_aliases()
+                sr_status = "[green]Registered (2 staging S3 URLs → assets symlink)[/green]"
+            except Exception as sr_err:
+                sr_status = f"[red]Failed:[/red] {escape(str(sr_err))}"
+            details.add_row("omniverse.toml (simready):", sr_status)
 
         console.print(
             Panel(
@@ -70,7 +136,7 @@ def unset_cmd():
       1. Removes the ~/.pow/assets symlink.
       2. Clears [asset] config in ~/.pow/system.toml.
       3. Removes [alias] section from omniverse.toml.
-      4. Removes asset-related keys from isaacsim.exp.base.kit [settings].
+      4. Removes the pow patch block from isaacsim.exp.base.kit (if present).
 
     Each step is performed independently — a failure in one step does not
     prevent the others from running.
