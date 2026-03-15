@@ -29,6 +29,7 @@ def set_cmd(assets_path: str):
       4. Registers a 'pow-assets' alias in omniverse.toml.
     """
     manager = AssetManager()
+    console.print()
     try:
         abs_path = manager.set_local_asset_path(assets_path)
 
@@ -75,6 +76,7 @@ def unset_cmd():
     prevent the others from running.
     """
     manager = AssetManager()
+    console.print()
     try:
         results = manager.unset_local_asset_path()
 
@@ -116,6 +118,19 @@ def unset_cmd():
         raise SystemExit(1)
 
 
+@asset_group.command(name="info")
+def info_cmd():
+    """Show details about the current local asset configuration."""
+    manager = AssetManager()
+    console.print()
+    try:
+        data = manager.get_asset_list_data()
+        _print_asset_status_panel(data)
+    except Exception as e:
+        console.print(Text.from_markup("[bold red]✘ Failed to load asset data:[/bold red] ") + Text(str(e)))
+        raise SystemExit(1)
+
+
 @asset_group.command(name="list")
 @click.option("-n", "--name", "view", flag_value="name", default=True, help="List by asset name (default).")
 @click.option("-g", "--group", "view", flag_value="group", help="List aggregated by group.")
@@ -128,29 +143,12 @@ def list_cmd(view: str):
       -g / --group  Show one row per group with summed size.
     """
     manager = AssetManager()
+    console.print()
     try:
         data = manager.get_asset_list_data()
     except Exception as e:
         console.print(Text.from_markup("[bold red]✘ Failed to load asset data:[/bold red] ") + Text(str(e)))
         raise SystemExit(1)
-
-    # ── Header: local asset config status ────────────────────────────────────
-    if data.local_path:
-        symlink_badge = (
-            "[bold green]symlink ✔[/bold green]"
-            if data.symlink_ok
-            else "[bold red]symlink ✘[/bold red]"
-        )
-        header_line = (
-            f"[bold green]●[/bold green]  [bold]{escape(data.local_path)}[/bold]"
-            f"  [dim]({symlink_badge}[dim])[/dim]"
-        )
-    else:
-        header_line = "[dim]○  Local assets not configured  —  run [bold]pow asset set <path>[/bold] to configure[/dim]"
-
-    console.print()
-    console.print(f"  {header_line}")
-    console.print()
 
     if view == "name":
         _print_name_view(data)
@@ -159,6 +157,52 @@ def list_cmd(view: str):
 
 
 # ── View renderers ────────────────────────────────────────────────────────────
+
+
+def _print_asset_status_panel(data: "AssetListData") -> None:  # noqa: F821
+    from rich.columns import Columns
+
+    if not data.local_path:
+        console.print(
+            Panel(
+                "[dim]○  Local assets not configured  —  run [bold]pow asset set <path>[/bold] to configure[/dim]",
+                title="[dim]Status[/dim]",
+                border_style="dim",
+                padding=(1, 2),
+            )
+        )
+        console.print()
+        return
+
+    manager = AssetManager()
+    symlink_path = manager.get_assets_symlink_path()
+    
+    status_text = "[bold green]Active[/bold green]"
+    dot = "[bold green]●[/bold green]"
+    
+    if not data.symlink_ok:
+        status_text = "[bold red]Broken Link[/bold red]"
+        dot = "[bold red]●[/bold red]"
+
+    grid = Table.grid(padding=(0, 2))
+    grid.add_column(justify="right", style="dim")
+    grid.add_column()
+
+    grid.add_row("Status", f"{dot}  {status_text}")
+    grid.add_row("Location", f"[bold cyan]{escape(data.local_path)}[/bold cyan]")
+    
+    symlink_status = "[green]✔ valid[/green]" if data.symlink_ok else "[bold red]✘ broken[/bold red]"
+    grid.add_row("Symlink", f"[dim]{escape(str(symlink_path))}[/dim]  ({symlink_status})")
+
+    console.print(
+        Panel(
+            grid,
+            title="[bold blue]Local Asset Configuration[/bold blue]",
+            border_style="blue" if data.symlink_ok else "red",
+            padding=(1, 2),
+        )
+    )
+    console.print()
 
 
 def _status_style(status: str, compact: bool = False) -> str:
