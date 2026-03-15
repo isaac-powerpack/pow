@@ -130,30 +130,33 @@ def info_cmd():
         console.print(Text.from_markup("[bold red]✘ Failed to load asset data:[/bold red] ") + Text(str(e)))
         raise SystemExit(1)
 
+#### 
+# Note: list command disabled in current version
+#####
 
-@asset_group.command(name="list")
-@click.option("-n", "--name", "view", flag_value="name", default=True, help="List by asset name (default).")
-@click.option("-g", "--group", "view", flag_value="group", help="List aggregated by group.")
-def list_cmd(view: str):
-    """List available Isaac Sim 5.1.0 assets.
-
-    \b
-    Views:
-      -n / --name   Show each asset individually, grouped by header (default).
-      -g / --group  Show one row per group with summed size.
-    """
-    manager = AssetManager()
-    console.print()
-    try:
-        data = manager.get_asset_list_data()
-    except Exception as e:
-        console.print(Text.from_markup("[bold red]✘ Failed to load asset data:[/bold red] ") + Text(str(e)))
-        raise SystemExit(1)
-
-    if view == "name":
-        _print_name_view(data)
-    else:
-        _print_group_view(data)
+# @asset_group.command(name="list", hidden=True)
+# @click.option("-n", "--name", "view", flag_value="name", default=True, help="List by asset name (default).")
+# @click.option("-g", "--group", "view", flag_value="group", help="List aggregated by group.")
+# def list_cmd(view: str):
+#     """List available Isaac Sim 5.1.0 assets.
+#
+#     \b
+#     Views:
+#       -n / --name   Show each asset individually, grouped by header (default).
+#       -g / --group  Show one row per group with summed size.
+#     """
+#     manager = AssetManager()
+#     console.print()
+#     try:
+#         data = manager.get_asset_list_data()
+#     except Exception as e:
+#         console.print(Text.from_markup("[bold red]✘ Failed to load asset data:[/bold red] ") + Text(str(e)))
+#         raise SystemExit(1)
+#
+#     if view == "name":
+#         _print_name_view(data)
+#     else:
+#         _print_group_view(data)
 
 
 # ── View renderers ────────────────────────────────────────────────────────────
