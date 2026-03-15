@@ -334,7 +334,7 @@ def init_cmd():
     global_dir_name = config["global_dir_name"]
     global_path = config["global_path"]
 
-    draw_logo()
+    # draw_logo()
 
     console.print(
             "\n"
