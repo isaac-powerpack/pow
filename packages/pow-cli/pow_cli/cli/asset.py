@@ -131,7 +131,7 @@ def _apply_isaacsim_aliases(
 ) -> None:
     """Patch isaacsim.exp.base.kit and register production S3 aliases."""
     try:
-        patched = manager.patch_isaacsim_kit(abs_path)
+        patched = manager.patch_isaacsim_kit()
         kit_status = (
             "[green]Patched[/green]"
             if patched

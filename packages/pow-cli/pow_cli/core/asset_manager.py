@@ -185,7 +185,7 @@ class AssetManager:
         steps = [
             ("Symlink",                    self._unset_symlink),
             ("system.toml [asset]",        self._unset_system_toml),
-            ("omniverse.toml [alias]",     self._unset_omniverse_aliases),
+            ("omniverse.toml [aliases]",     self._unset_omniverse_aliases),
             ("isaacsim.exp.base.kit patch", self._unset_kit_patch),
         ]
 
@@ -208,7 +208,7 @@ class AssetManager:
 
     # ── Kit patching ──────────────────────────────────────────────────────────
 
-    def patch_isaacsim_kit(self, use_local_path: str) -> bool:
+    def patch_isaacsim_kit(self) -> bool:
         """Append local asset settings block to isaacsim.exp.base.kit.
 
         Returns:
@@ -359,32 +359,32 @@ class AssetManager:
         self.OMNIVERSE_TOML_PATH.write_text(tomlkit.dumps(doc))
 
     def _register_omniverse_alias(self, abs_path: Path) -> None:
-        """Add or update 'pow-assets' entry in [alias] of omniverse.toml."""
+        """Add or update 'pow-assets' entry in [aliases] of omniverse.toml."""
         doc = self._read_omniverse_doc()
-        if "alias" not in doc:
-            doc.add("alias", tomlkit.table())
-        doc["alias"][self.POW_ASSETS_ALIAS] = str(self.get_assets_symlink_path())
+        if "aliases" not in doc:
+            doc.add("aliases", tomlkit.table())
+        doc["aliases"][self.POW_ASSETS_ALIAS] = str(self.get_assets_symlink_path())
         self._save_omniverse_doc(doc)
 
     def _clear_omniverse_aliases(self) -> bool:
-        """Remove entire [alias] section from omniverse.toml. Returns True if removed."""
+        """Remove entire [aliases] section from omniverse.toml. Returns True if removed."""
         if not self.OMNIVERSE_TOML_PATH.exists():
             return False
         doc = self._read_omniverse_doc()
-        if "alias" not in doc:
+        if "aliases" not in doc:
             return False
-        del doc["alias"]
+        del doc["aliases"]
         self._save_omniverse_doc(doc)
         return True
 
     def _write_s3_aliases(self, keys: tuple[str, ...]) -> None:
-        """Write the given S3 URL keys → assets symlink into omniverse.toml [alias]."""
+        """Write the given S3 URL keys → assets symlink into omniverse.toml [aliases]."""
         doc = self._read_omniverse_doc()
-        if "alias" not in doc:
-            doc.add("alias", tomlkit.table())
+        if "aliases" not in doc:
+            doc.add("aliases", tomlkit.table())
         symlink_path = str(self.get_assets_symlink_path())
         for url in keys:
-            doc["alias"][url] = symlink_path
+            doc["aliases"][url] = symlink_path
         self._save_omniverse_doc(doc)
 
     # ── Private: unset step functions ─────────────────────────────────────────
@@ -470,38 +470,11 @@ class AssetManager:
     # ── Private: kit patch block builder ──────────────────────────────────────
 
     def _build_kit_patch_block(self) -> str:
-        """Build the full kit patch text block."""
-        assets_root = str(self.get_assets_symlink_path())
-        isaac_root = f"{assets_root}/Assets/Isaac/{PowConfig.ISAACSIM_VERSION}/Isaac"
-
-        folders = [
-            f"{isaac_root}/{sub}"
-            for sub in (
-                "Robots", "People", "IsaacLab", "Props",
-                "Environments", "Materials", "Samples", "Sensors",
-            )
-        ]
-
-        folder_block = self._fmt_kit_folder_list(folders)
-
+        """Build the reduced kit patch text block."""
         return (
             "\n"
             f"{self._KIT_PATCH_START}\n"
             "[settings]\n"
             f'exts."isaacsim.asset.browser".visible_after_startup = true\n'
-            f'persistent.isaac.asset_root.default = "{assets_root}/Assets/Isaac/{PowConfig.ISAACSIM_VERSION}"\n'
-            f'exts."isaacsim.gui.content_browser".folders =\n'
-            f"{folder_block}\n"
-            "\n"
-            f'exts."isaacsim.asset.browser".folders =\n'
-            f"{folder_block}\n"
             f"{self._KIT_PATCH_END}\n"
         )
-
-    @staticmethod
-    def _fmt_kit_folder_list(items: list[str]) -> str:
-        lines = ["    ["]
-        for item in items:
-            lines.append(f'        "{item}",')
-        lines.append("    ]")
-        return "\n".join(lines)
