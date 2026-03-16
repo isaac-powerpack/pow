@@ -308,8 +308,72 @@ class Initializer:
         target_link.symlink_to(global_isaacsim, target_is_directory=True)
         return {"status": "Created", "path": str(target_link)}
 
+    def setup_vscode_configs(self) -> dict:
+        """Copy and patch VSCode configs from _isaacsim/.vscode to project."""
+        src_vscode = Path("_isaacsim") / ".vscode"
+        dest_vscode = Path(".vscode")
+
+        if not src_vscode.is_dir():
+            return {"status": "Error", "message": "_isaacsim/.vscode not found."}
+
+        dest_vscode.mkdir(parents=True, exist_ok=True)
+        files_to_copy = ["launch.json", "tasks.json", "settings.json", "c_cpp_properties.json"]
+        patch_files = {"launch.json", "tasks.json", "settings.json"}
+        results = []
+
+        for filename in files_to_copy:
+            src_file = src_vscode / filename
+            dest_file = dest_vscode / filename
+
+            if not src_file.exists():
+                results.append({"file": filename, "status": "Not found in source"})
+                continue
+
+            shutil.copy(src_file, dest_file)
+
+            if filename not in patch_files:
+                results.append({"file": filename, "status": "Copied"})
+                continue
+
+            # Patch: replace ${workspaceFolder} with _isaacsim
+            content = dest_file.read_text().replace("${workspaceFolder}", "_isaacsim")
+
+            # Patch settings.json: prefix python.analysis.extraPaths entries with _isaacsim/
+            if filename == "settings.json":
+                try:
+                    data = json.loads(content)
+                    paths = data.get("python.analysis.extraPaths", [])
+                    if isinstance(paths, list):
+                        data["python.analysis.extraPaths"] = [
+                            p if p.startswith("_isaacsim") else f"_isaacsim/{p}"
+                            for p in paths
+                        ]
+                        content = json.dumps(data, indent=4)
+                except Exception:
+                    pass  # Fallback to simple string replacement if JSON is invalid
+
+            dest_file.write_text(content)
+            results.append({"file": filename, "status": "Copied and patched"})
+
+        return {"status": "Success", "results": results}
+
+    def init_git(self) -> dict:
+        """Initialize git repository if it doesn't already exist."""
+        git_dir = Path(".git")
+        if git_dir.exists():
+            return {"status": "Existed"}
+
+        try:
+            subprocess.run(["git", "init", "--quiet"], check=True)
+            return {"status": "Created"}
+        except Exception as e:
+            return {"status": "Error", "message": str(e)}
+
     def create_pow_toml(self, override: bool = False, enable_ros: bool = False) -> dict:
         """Copy pow.template.toml to pow.toml and patch settings from user choices."""
+        # Initialize git if not already done
+        self.init_git()
+
         pow_toml_path = Path("pow.toml")
 
         if pow_toml_path.exists() and not override:
