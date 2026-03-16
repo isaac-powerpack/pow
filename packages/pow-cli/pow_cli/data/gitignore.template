@@ -57,6 +57,7 @@ Thumbs.db
 
 # Isaac Sim / Omniverse
 _isaac_sim/
+_isaacsim/
 _build/
 *.usd.tmp
 *.usda.tmp
@@ -67,3 +68,5 @@ __pycache__/
 .vscode/browse.vc.db*
 **/.assets
 .modules
+_isaac_sim
+_isaacsim

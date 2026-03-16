@@ -292,6 +292,22 @@ class Initializer:
 
         return {"results": results}
 
+    def link_managed_isaacsim(self) -> dict:
+        """Symlink global managed Isaac Sim to project's _isaacsim."""
+        version = PowConfig.ISAACSIM_VERSION
+        global_isaacsim = self.config.global_path / "isaacsim" / version
+
+        if not global_isaacsim.is_dir():
+            return {"status": "Error", "message": f"Global Isaac Sim {version} not found."}
+
+        target_link = Path("_isaacsim")
+
+        if target_link.exists() or target_link.is_symlink():
+            return {"status": "Existed", "path": str(target_link)}
+
+        target_link.symlink_to(global_isaacsim, target_is_directory=True)
+        return {"status": "Created", "path": str(target_link)}
+
     def create_pow_toml(self, override: bool = False, enable_ros: bool = False) -> dict:
         """Copy pow.template.toml to pow.toml and patch settings from user choices."""
         pow_toml_path = Path("pow.toml")

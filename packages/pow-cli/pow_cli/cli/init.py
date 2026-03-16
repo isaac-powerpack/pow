@@ -67,7 +67,7 @@ def _step1_check_config(global_dir_name: str) -> bool:
         )
         return False
     console.print(
-        f"\n[bold blue][1/8] 🔧 Config:[/bold blue] "
+        f"\n[bold blue][1/9] 🔧 Config:[/bold blue] "
         f"Using global directory [bold green]'{global_dir_name}'[/bold green]"
     )
     return True
@@ -77,13 +77,13 @@ def _step2_check_existing_config(manager: Initializer) -> bool:
     """Ask whether to override an existing pow.toml. Returns override flag."""
     if not Path("pow.toml").exists():
         console.print(
-            "[bold blue][2/8] 🔍 Check Existing Config [/bold blue] "
+            "[bold blue][2/9] 🔍 Check Existing Config [/bold blue] "
             "No existing pow.toml found. Proceeding..."
         )
         return True  # nothing to preserve, will create fresh
 
     console.print(
-        "[bold blue][2/8] 🔍 Check Existing Config: [/bold blue] "
+        "[bold blue][2/9] 🔍 Check Existing Config: [/bold blue] "
         "[yellow]Found existing pow.toml[/yellow]"
     )
     override = Confirm.ask(
@@ -102,7 +102,7 @@ def _step2_check_existing_config(manager: Initializer) -> bool:
 def _step3_global_folder(manager: Initializer, global_path):
     """Create the .pow global folder and print the result."""
     console.print(
-        f"[bold blue][3/8] 📂 Global Folder:[/bold blue] Preparing [dim]{global_path}[/dim]..."
+        f"[bold blue][3/9] 📂 Global Folder:[/bold blue] Preparing [dim]{global_path}[/dim]..."
     )
     init_data = manager.create_global_folder()
 
@@ -128,7 +128,7 @@ def _step3_global_folder(manager: Initializer, global_path):
 
 def _step4_download_isaacsim(manager: Initializer) -> dict | None:
     """Download Isaac Sim with a Rich progress bar. Returns result dict or None on error."""
-    console.print("[bold blue][4/8] 📦 Isaac Sim App:[/bold blue] Installing Isaac Sim 5.1.0...")
+    console.print("[bold blue][4/9] 📦 Isaac Sim App:[/bold blue] Installing Isaac Sim 5.1.0...")
 
     result = None
     error = None
@@ -218,7 +218,7 @@ def _step4_download_isaacsim(manager: Initializer) -> dict | None:
 
 def _step5_optimization(manager: Initializer, isaacsim_path: str):
     """Apply Isaac Sim post-install fixes."""
-    console.print("[bold blue][5/8] ⚡ Optimization:[/bold blue] Applying Isaac Sim fixes...")
+    console.print("[bold blue][5/9] ⚡ Optimization:[/bold blue] Applying Isaac Sim fixes...")
     with console.status("Fixing isaacsim.asset.browser cache file missing..."):
         fixed = manager.fix_asset_browser_cache(isaacsim_path)
     if fixed:
@@ -229,7 +229,7 @@ def _step5_optimization(manager: Initializer, isaacsim_path: str):
 
 def _step6_ros_integration(manager: Initializer, global_dir_name: str, forced_value: bool | None = None) -> bool:
     """Prompt for ROS integration and set it up. Returns whether ROS was enabled."""
-    console.print("[bold blue][6/8] 🤖 ROS Integration:[/bold blue]")
+    console.print("[bold blue][6/9] 🤖 ROS Integration:[/bold blue]")
     
     if forced_value is not None:
         enabled = forced_value
@@ -285,7 +285,7 @@ def _step6_ros_integration(manager: Initializer, global_dir_name: str, forced_va
 
 def _step7_project_structure(manager: Initializer):
     """Create local project folders and .gitignore."""
-    console.print("[bold blue][7/8] 🏗️ Project Structure:[/bold blue] Creating local folders...")
+    console.print("[bold blue][7/9] 🏗️ Project Structure:[/bold blue] Creating local folders...")
     local_folders = ["exts", "scripts", ".modules", ".assets", "standalone"]
 
     with Progress(
@@ -312,9 +312,21 @@ def _step7_project_structure(manager: Initializer):
         console.print("   [yellow]✔[/yellow] .gitignore already exists. [dim]Kept existing.[/dim]")
 
 
-def _step8_finalize(manager: Initializer, override_pow_toml: bool, ros_enabled: bool):
+def _step8_project_link(manager: Initializer):
+    """Symlink managed Isaac Sim to local project."""
+    console.print("[bold blue][8/9] 🔗 Project Link:[/bold blue] Linking Isaac Sim to project...")
+    result = manager.link_managed_isaacsim()
+    if result["status"] == "Created":
+        console.print(f"   [green]✔[/green] Created symlink: [dim]{result['path']}[/dim]")
+    elif result["status"] == "Existed":
+        console.print(f"   [yellow]✔[/yellow] Symlink already exists: [dim]{result['path']}[/dim]")
+    elif result["status"] == "Error":
+        console.print(f"   [bold red]❌ Error:[/bold red] {result['message']}")
+
+
+def _step9_finalize(manager: Initializer, override_pow_toml: bool, ros_enabled: bool):
     """Generate pow.toml configuration."""
-    console.print("[bold blue][8/8] ✅ Finalizing:[/bold blue] Generating configuration...")
+    console.print("[bold blue][9/9] ✅ Finalizing:[/bold blue] Generating configuration...")
     result = manager.create_pow_toml(override=override_pow_toml, enable_ros=ros_enabled)
     if result["status"] == "Created":
         console.print("   [green]✔[/green] Created pow.toml (from template)")
@@ -363,11 +375,12 @@ def init_cmd():
 
     ros_enabled = _step6_ros_integration(manager, global_dir_name, forced_value=ros_forced)
     _step7_project_structure(manager)
-    
+    _step8_project_link(manager)
+
     if override_pow_toml:
-        _step8_finalize(manager, override_pow_toml, ros_enabled)
+        _step9_finalize(manager, override_pow_toml, ros_enabled)
     else:
-        console.print("[bold blue][8/8] ✅ Finalizing:[/bold blue] [yellow]Kept existing pow.toml[/yellow]")
+        console.print("[bold blue][9/9] ✅ Finalizing:[/bold blue] [yellow]Kept existing pow.toml[/yellow]")
 
     console.print(
         Panel(
