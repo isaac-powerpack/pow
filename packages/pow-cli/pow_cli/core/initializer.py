@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import platform
 import shutil
 import subprocess
@@ -338,19 +339,18 @@ class Initializer:
             # Patch: replace ${workspaceFolder} with _isaacsim
             content = dest_file.read_text().replace("${workspaceFolder}", "_isaacsim")
 
-            # Patch settings.json: prefix python.analysis.extraPaths entries with _isaacsim/
+            # Patch settings.json using regex to handle JSONC (comments allowed)
             if filename == "settings.json":
-                try:
-                    data = json.loads(content)
-                    paths = data.get("python.analysis.extraPaths", [])
-                    if isinstance(paths, list):
-                        data["python.analysis.extraPaths"] = [
-                            p if p.startswith("_isaacsim") else f"_isaacsim/{p}"
-                            for p in paths
-                        ]
-                        content = json.dumps(data, indent=4)
-                except Exception:
-                    pass  # Fallback to simple string replacement if JSON is invalid
+                # Prefix non-prefixed string entries in python.analysis.extraPaths array
+                def _prefix_extra_paths(m):
+                    return re.sub(r'"(?!_isaacsim)([^"]+)"', r'"_isaacsim/\1"', m.group(0))
+
+                content = re.sub(
+                    r'"python\.analysis\.extraPaths"\s*:\s*\[[^\]]*\]',
+                    _prefix_extra_paths,
+                    content,
+                    flags=re.DOTALL,
+                )
 
             dest_file.write_text(content)
             results.append({"file": filename, "status": "Copied and patched"})
