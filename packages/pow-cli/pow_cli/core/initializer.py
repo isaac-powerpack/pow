@@ -343,7 +343,17 @@ class Initializer:
             if filename == "settings.json":
                 # Prefix non-prefixed string entries in python.analysis.extraPaths array
                 def _prefix_extra_paths(m):
-                    return re.sub(r'"(?!_isaacsim)([^"]+)"', r'"_isaacsim/\1"', m.group(0))
+                    # m.group(0) is '"python.analysis.extraPaths": [ ... ]'
+                    full_content = m.group(0)
+                    key_part, array_part = full_content.split(':', 1)
+
+                    # Match strings inside the array that are not already prefixed
+                    patched_array = re.sub(
+                        r'([\[,])(\s*)"(?!_isaacsim)([^"]+)"',
+                        r'\1\2"_isaacsim/\3"',
+                        array_part
+                    )
+                    return key_part + ':' + patched_array
 
                 content = re.sub(
                     r'"python\.analysis\.extraPaths"\s*:\s*\[[^\]]*\]',
