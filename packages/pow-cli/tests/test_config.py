@@ -121,3 +121,182 @@ def test_global_dir_name_custom(tmp_path, monkeypatch, reset_config_singleton):
     monkeypatch.chdir(root)
     config = PowConfig()
     assert config.global_dir_name == ".custom_pow"
+
+# ── extends feature tests ──────────────────────────────────────────────────────
+
+def _make_config(tmp_path, monkeypatch, reset_config_singleton_fixture, content: str) -> PowConfig:
+    """Helper: write pow.toml, chdir, and return a fresh PowConfig."""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "pow.toml").write_text(content)
+    monkeypatch.chdir(root)
+    reset_config_singleton_fixture  # already applied via fixture
+    return PowConfig()
+
+
+def test_profile_extends_another_profile(tmp_path, monkeypatch, reset_config_singleton):
+    """A profile can extend another named profile (yolo → centerpose)."""
+    content = """
+[sim]
+version = "5.1.0"
+headless = false
+exts = ["isaacsim.code_editor.vscode"]
+
+[[profiles]]
+name = "yolo"
+headless = true
+exts = ["oc.proj.yolo"]
+
+[[profiles]]
+name = "centerpose"
+extends = "yolo"
+cpu_performance_mode = true
+exts.add = ["oc.proj.centerpose"]
+"""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "pow.toml").write_text(content)
+    monkeypatch.chdir(root)
+    config = PowConfig()
+
+    profile = config.get_profile("centerpose")
+    # Inherits headless=true from yolo
+    assert profile["headless"] is True
+    # version comes from [sim] via yolo (yolo has no extends → extends [sim])
+    assert profile["version"] == "5.1.0"
+    # cpu_performance_mode set in centerpose
+    assert profile["cpu_performance_mode"] is True
+    # exts: yolo's list + centerpose's .add list
+    assert profile["exts"] == ["oc.proj.yolo", "oc.proj.centerpose"]
+
+
+def test_profile_extends_default_explicit(tmp_path, monkeypatch, reset_config_singleton):
+    """extends = 'default' falls back to [sim]."""
+    content = """
+[sim]
+headless = false
+exts = ["base_ext"]
+
+[[profiles]]
+name = "myprofile"
+extends = "default"
+headless = true
+"""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "pow.toml").write_text(content)
+    monkeypatch.chdir(root)
+    config = PowConfig()
+
+    profile = config.get_profile("myprofile")
+    assert profile["headless"] is True
+    assert profile["exts"] == ["base_ext"]
+
+
+def test_profile_no_extends_defaults_to_sim(tmp_path, monkeypatch, reset_config_singleton):
+    """A profile without 'extends' inherits from [sim] only."""
+    content = """
+[sim]
+headless = false
+exts = ["base_ext"]
+
+[[profiles]]
+name = "slim"
+headless = true
+"""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "pow.toml").write_text(content)
+    monkeypatch.chdir(root)
+    config = PowConfig()
+
+    profile = config.get_profile("slim")
+    assert profile["headless"] is True
+    assert profile["exts"] == ["base_ext"]
+
+
+def test_profile_extends_add_appends_list(tmp_path, monkeypatch, reset_config_singleton):
+    """exts.add appends to the inherited list from [sim]."""
+    content = """
+[sim]
+exts = ["base_ext"]
+
+[[profiles]]
+name = "extra"
+"exts.add" = ["added_ext"]
+"""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "pow.toml").write_text(content)
+    monkeypatch.chdir(root)
+    config = PowConfig()
+
+    profile = config.get_profile("extra")
+    assert profile["exts"] == ["base_ext", "added_ext"]
+
+
+def test_profile_extends_add_on_non_list_raises(tmp_path, monkeypatch, reset_config_singleton):
+    """exts.add targeting a non-list raises ClickException at resolution time."""
+    import click as _click
+    content = """
+[sim]
+headless = false
+
+[[profiles]]
+name = "bad"
+"headless.add" = [true]
+"""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "pow.toml").write_text(content)
+    monkeypatch.chdir(root)
+    config = PowConfig()
+
+    with pytest.raises(_click.ClickException, match="not a list"):
+        config.get_profile("bad")
+
+
+def test_profile_extends_unknown_target_raises(tmp_path, monkeypatch, reset_config_singleton):
+    """extends pointing to a non-existent profile raises ClickException."""
+    import click as _click
+    content = """
+[sim]
+headless = false
+
+[[profiles]]
+name = "child"
+extends = "ghost"
+"""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "pow.toml").write_text(content)
+    monkeypatch.chdir(root)
+    config = PowConfig()
+
+    with pytest.raises(_click.ClickException, match="not found"):
+        config.get_profile("child")
+
+
+def test_profile_extends_circular_raises(tmp_path, monkeypatch, reset_config_singleton):
+    """Circular extends (a→b→a) raises ClickException."""
+    import click as _click
+    content = """
+[sim]
+headless = false
+
+[[profiles]]
+name = "a"
+extends = "b"
+
+[[profiles]]
+name = "b"
+extends = "a"
+"""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "pow.toml").write_text(content)
+    monkeypatch.chdir(root)
+    config = PowConfig()
+
+    with pytest.raises(_click.ClickException, match="[Cc]ircular"):
+        config.get_profile("a")

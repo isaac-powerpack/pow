@@ -3,6 +3,7 @@ try:
 except ImportError:
     import tomli as tomllib
 import distro
+import click
 from pathlib import Path
 from typing import Any, Optional
 
@@ -156,28 +157,120 @@ class PowConfig:
 
     def get_profile(self, profile_name: str = "default") -> dict[str, Any]:
         """
-        Get a merged profile dictionary.
+        Get a merged profile dictionary with ``extends`` and ``.add`` support.
 
-        If profile_name is 'default' or 'sim', it returns data from [sim] only.
-        Otherwise, it merges [sim] with the requested profile from the top-level
-        'profiles' list.
+        Resolution order
+        ----------------
+        1. If *profile_name* is ``"default"`` or ``"sim"``, return ``[sim]`` data.
+        2. Otherwise locate the ``[[profiles]]`` entry whose ``name`` matches.
+        3. Determine the *base* config:
+           - No ``extends`` key, or ``extends = "default"`` → ``[sim]``
+           - ``extends = "<other>"`` → recursively resolve that profile first.
+             Circular references and missing targets raise ``ClickException``.
+        4. Apply ``.add`` append keys: a key like ``exts.add`` appends its list
+           value to the base ``exts`` list.  If the base value is not a list a
+           ``ClickException`` is raised immediately (fail-fast at ``pow run``).
+        5. Strip ``name``, ``extends``, and all ``*.add`` keys from the result.
 
-        Raises RuntimeError if pow.toml was not found.
+        Raises
+        ------
+        RuntimeError
+            If pow.toml was not found during initialization.
+        click.ClickException
+            If ``extends`` is circular, targets a missing profile, or a ``.add``
+            key targets a non-list base value.
         """
         self._require_project()
-        sim_data = self._data.get("sim", {}).copy()
+        return self._resolve_profile(profile_name, _seen=set())
+
+    def _resolve_profile(
+        self,
+        profile_name: str,
+        _seen: "set[str]",
+    ) -> "dict[str, Any]":
+        """Internal recursive resolver for ``get_profile``."""
+        import copy
+
+        sim_data: dict[str, Any] = copy.deepcopy(self._data.get("sim", {}))
 
         if profile_name in ("default", "sim"):
             return sim_data
 
-        profiles = self._data.get("profiles", [])
+        profiles: list[dict[str, Any]] = self._data.get("profiles", [])
+        target: dict[str, Any] | None = next(
+            (p for p in profiles if p.get("name") == profile_name), None
+        )
+        if target is None:
+            raise click.ClickException(
+                f"Profile '{profile_name}' not found in pow.toml [[profiles]]."
+            )
 
-        # Merge with target profile entry in [[profiles]]
-        target_profile = next((p for p in profiles if p.get("name") == profile_name), None)
-        if target_profile:
-            sim_data.update({k: v for k, v in target_profile.items() if k != "name"})
+        extends: str = target.get("extends", "default")
 
-        return sim_data
+        # ── Circular-extends guard ────────────────────────────────────────────
+        if profile_name in _seen:
+            cycle = " → ".join(sorted(_seen)) + f" → {profile_name}"
+            raise click.ClickException(
+                f"Circular 'extends' detected in pow.toml profiles: {cycle}"
+            )
+        _seen = _seen | {profile_name}
+
+        # ── Resolve base ──────────────────────────────────────────────────────
+        if extends in ("default", "sim"):
+            base: dict[str, Any] = sim_data
+        else:
+            base = self._resolve_profile(extends, _seen)
+
+        # ── Apply overrides and .add append keys ──────────────────────────────
+        merged = dict(base)
+
+        # TOML parses `exts.add = [...]` as {"exts": {"add": [...]}} (dotted keys
+        # create nested dicts rather than literal string keys).  Flatten those so
+        # the rest of the logic can treat them uniformly as "exts.add" string keys.
+        flat_target: dict[str, Any] = {}
+        for key, value in target.items():
+            if (
+                isinstance(value, dict)
+                and list(value.keys()) == ["add"]
+                and isinstance(value["add"], list)
+            ):
+                flat_target[f"{key}.add"] = value["add"]
+            else:
+                flat_target[key] = value
+
+        # First pass: plain overrides (skip meta-keys and *.add keys)
+        for key, value in flat_target.items():
+            if key in ("name", "extends"):
+                continue
+            if key.endswith(".add"):
+                continue
+            merged[key] = value
+
+        # Second pass: .add append keys
+        for key, value in flat_target.items():
+            if not key.endswith(".add"):
+                continue
+            root_key = key[: -len(".add")]
+            base_value = merged.get(root_key)
+            if base_value is None:
+                # Key doesn't exist in base yet – treat as a plain list assignment
+                merged[root_key] = list(value) if isinstance(value, list) else [value]
+            elif not isinstance(base_value, list):
+                raise click.ClickException(
+                    f"Profile '{profile_name}': '{key}' targets '{root_key}' which is "
+                    f"not a list (got {type(base_value).__name__}). "
+                    "The '.add' append keyword only works with list values."
+                )
+            else:
+                if not isinstance(value, list):
+                    raise click.ClickException(
+                        f"Profile '{profile_name}': '{key}' value must be a list, "
+                        f"got {type(value).__name__}."
+                    )
+                merged[root_key] = base_value + value
+
+        return merged
+
 
     def get(self, key: str, default: Any = None, profile: str = "default") -> Any:
         """
