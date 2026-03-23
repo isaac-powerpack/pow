@@ -1,0 +1,135 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# pow_simros Dockerfile
+#
+# Builds a ROS 2 workspace image for Isaac Sim following steps 2-6 of:
+#   https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/install_ros.html
+#       #running-ros-in-docker-containers
+#
+# Usage:
+#   # Build (e.g. for humble):
+#   docker build \
+#     -f Dockerfile.simros \
+#     -t pow_simros_humble \
+#     --build-arg ROS_DISTRO=humble \
+#     --build-context ros_ws=~/.pow/sim-ros/IsaacSim-ros_workspaces/humble_ws \
+#     .
+#
+#   # Run (mount workspace from host):
+#   docker run -it --rm --net=host \
+#     --env="DISPLAY" --env="ROS_DOMAIN_ID" \
+#     -v ~/.pow/sim-ros/IsaacSim-ros_workspaces/humble_ws:/humble_ws \
+#     --name ros_ws_docker pow_simros_humble /bin/bash
+# ──────────────────────────────────────────────────────────────────────────────
+
+ARG ROS_DISTRO=humble
+
+# ── Step 3: Base ROS 2 desktop image ─────────────────────────────────────────
+FROM osrf/ros:${ROS_DISTRO}-desktop
+
+# Re-declare after FROM so it's available in the rest of the build
+ARG ROS_DISTRO
+
+ENV ROS_DISTRO=${ROS_DISTRO}
+
+# ── Step 5: FastDDS configuration ────────────────────────────────────────────
+# If the user has a custom ~/.ros/fastdds.xml on the host, they can mount it
+# at build time via:
+#   --build-arg FASTDDS_XML_PATH=<path-to-fastdds.xml>
+# Otherwise, a default fastdds.xml enabling UDP transport is embedded.
+RUN mkdir -p /ros_config
+
+# Embed default FastDDS XML for UDP transport (used when no user/workspace
+# fastdds.xml is available).
+RUN cat > /ros_config/fastdds_default.xml <<'XMLEOF'
+<?xml version="1.0" encoding="UTF-8" ?>
+<license>Copyright (c) 2022-2024, NVIDIA CORPORATION.  All rights reserved.
+NVIDIA CORPORATION and its licensors retain all intellectual property
+and proprietary rights in and to this software, related documentation
+and any modifications thereto.  Any use, reproduction, disclosure or
+distribution of this software and related documentation without an express
+license agreement from NVIDIA CORPORATION is strictly prohibited.</license>
+
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles" >
+    <transport_descriptors>
+        <transport_descriptor>
+            <transport_id>UdpTransport</transport_id>
+            <type>UDPv4</type>
+        </transport_descriptor>
+    </transport_descriptors>
+
+    <participant profile_name="udp_transport_profile" is_default_profile="true">
+        <rtps>
+            <userTransports>
+                <transport_id>UdpTransport</transport_id>
+            </userTransports>
+            <useBuiltinTransports>false</useBuiltinTransports>
+        </rtps>
+    </participant>
+</profiles>
+XMLEOF
+
+# ── Step 6: Install build tools & packages ──────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-colcon-common-extensions \
+    python3-rosdep \
+    ros-humble-vision-msgs \
+    ros-humble-ackermann-msgs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Make sure rosdep is initialized
+RUN rosdep update || true
+
+# ── Step 4: Default working directory ────────────────────────────────────────
+WORKDIR /${ROS_DISTRO}_ws
+
+# ── Step 6: Build workspace at image build time ──────────────────────────────
+# Uses a named build context 'ros_ws' pointing to the <distro>_ws folder.
+# Build with:
+#   docker build --build-context ros_ws=~/.pow/sim-ros/IsaacSim-ros_workspaces/<distro>_ws ...
+# install/ is persisted at /opt/<distro>_ws_install so the runtime volume mount
+# at /<distro>_ws does not shadow it.
+RUN --mount=type=bind,from=ros_ws,target=/${ROS_DISTRO}_ws \
+    bash -c "\
+    source /opt/ros/${ROS_DISTRO}/setup.sh && \
+    cd /${ROS_DISTRO}_ws && \
+    apt-get update && \
+    rosdep install --from-paths src --ignore-src --rosdistro=${ROS_DISTRO} -y \
+    "
+
+# ── Entrypoint ───────────────────────────────────────────────────────────────
+# Resolves FastDDS config (user mount > workspace copy > embedded default),
+# sources ROS 2 and the workspace overlay when available.
+RUN cat > /ros_config/entrypoint.sh <<'ENTRYEOF'
+#!/bin/bash
+set -e
+
+# ── FastDDS configuration resolution ──────────────────────────────────────
+# Priority: 1) user-mounted ~/.ros/fastdds.xml  2) workspace fastdds.xml
+#           3) embedded default
+if [ -f "$HOME/.ros/fastdds.xml" ]; then
+    export FASTRTPS_DEFAULT_PROFILES_FILE="$HOME/.ros/fastdds.xml"
+elif [ -f "/${ROS_DISTRO}_ws/fastdds.xml" ]; then
+    export FASTRTPS_DEFAULT_PROFILES_FILE="/${ROS_DISTRO}_ws/fastdds.xml"
+else
+    export FASTRTPS_DEFAULT_PROFILES_FILE="/ros_config/fastdds_default.xml"
+fi
+
+# ── Source ROS 2 base ─────────────────────────────────────────────────────
+source /opt/ros/${ROS_DISTRO}/setup.bash
+
+# ── Source pre-built workspace overlay ────────────────────────────────────
+if [ -f "/${ROS_DISTRO}_ws/install/local_setup.bash" ]; then
+    source "/${ROS_DISTRO}_ws/install/local_setup.bash"
+else
+    cd /${ROS_DISTRO}_ws
+    colcon build
+    source install/local_setup.bash
+fi
+
+exec "$@"
+ENTRYEOF
+
+RUN chmod +x /ros_config/entrypoint.sh
+
+ENTRYPOINT ["/ros_config/entrypoint.sh"]
+CMD ["/bin/bash"]
