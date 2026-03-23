@@ -280,6 +280,33 @@ def _step6_ros_integration(manager: Initializer, global_dir_name: str, forced_va
     else:
         console.print(f"   [green]✔[/green] Docker build complete for {distro_label}.")
 
+    # Build pow_simros Docker image
+    simros_already_built = False
+
+    def simros_status_callback(state):
+        nonlocal simros_already_built
+        if state == "simros_built":
+            simros_already_built = True
+            simros_status.update("[bold yellow]pow_simros image already exists.")
+        elif state == "simros_building":
+            simros_status.update("[bold green]Building pow_simros image...")
+        elif state.startswith("simros_building:"):
+            line = state[len("simros_building:"):]
+            simros_status.update(f"[bold green]pow_simros build:[/bold green] [dim]{line[:80]}[/dim]")
+
+    with console.status("Building pow_simros image...") as simros_status:
+        try:
+            simros_res = manager.build_simros_image(status_callback=simros_status_callback)
+        except Exception as e:
+            console.print(f"   [bold red]❌ pow_simros Build Error:[/bold red] {e}")
+            return True
+
+    simros_label = f"pow_simros_[bold]{ros_res['ros_distro']}[/bold]"
+    if simros_already_built:
+        console.print(f"   [yellow]✔[/yellow] Docker image {simros_label} already exists.")
+    else:
+        console.print(f"   [green]✔[/green] Docker image {simros_label} built successfully.")
+
     return True
 
 

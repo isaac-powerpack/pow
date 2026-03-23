@@ -251,6 +251,56 @@ class Initializer:
             "path": str(clone_path),
         }
 
+    def build_simros_image(self, status_callback=None) -> dict:
+        """Build pow_simros_<distro> Docker image using Dockerfile.simros.
+
+        Skips the build if the image already exists locally.
+        """
+        ros_distro = self.config.ros_distro
+        docker_image = f"pow_simros_{ros_distro}"
+        distro_ws = self.config.ros_ws_path / f"{ros_distro}_ws"
+        dockerfile_path = Path(__file__).parent.parent / "docker" / "Dockerfile.simros"
+
+        # Check if image already exists
+        image_check = subprocess.run(
+            ["docker", "image", "inspect", f"{docker_image}:latest"],
+            capture_output=True,
+        )
+        if image_check.returncode == 0:
+            if status_callback:
+                status_callback("simros_built")
+            return {"status": "existed", "image": docker_image}
+
+        if status_callback:
+            status_callback("simros_building")
+
+        process = subprocess.Popen(
+            [
+                "docker", "build",
+                "-f", str(dockerfile_path),
+                "-t", docker_image,
+                "--build-arg", f"ROS_DISTRO={ros_distro}",
+                "--build-context", f"ros_ws={distro_ws}",
+                ".",
+            ],
+            cwd=str(self.config.ros_ws_path),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        for line in process.stdout:
+            stripped = line.strip()
+            if stripped and status_callback:
+                status_callback(f"simros_building:{stripped}")
+        process.wait()
+
+        if process.returncode != 0:
+            raise RuntimeError(
+                f"Docker build for {docker_image} failed with exit code {process.returncode}"
+            )
+
+        return {"status": "built", "image": docker_image}
+
     def download_isaacsim(self, progress_callback=None, status_callback=None, mock=False):
         """Download and install Isaac Sim."""
         self._check_platform()
