@@ -2,11 +2,12 @@
     <img src="https://raw.githubusercontent.com/bemunin/isaac-powerpack/main/docs/public/logo.svg" width="400"/>
 </p>
 
-✨ Isaac Powerpack’s goal is to provide a toolkit that simplifies Isaac ROS development on NVIDIA Jetson boards.
+> [!IMPORTANT] 
+> **Scope Change for v0.1.0**
+> In the next version, starting with v0.1.0, this repository focuses exclusively on Isaac Sim project management (`pow-cli`). `pow-foxglove` has been migrated to a standalone repository. Planned Isaac ROS commands have been removed from the roadmap in favor of a new `pow ros` command for Isaac Sim Ros workspace Docker container access.
 
 Key features include:
 
-- 🪻 Foxglove Studio extensions — for visualizing and debugging Isaac ROS data
 - 🛠️ CLI tools — to streamline Isaac ROS and Isaac Sim project setup and management
 
 🚧 This project is in early development. Features and APIs are still evolving and subject to breaking changes.
