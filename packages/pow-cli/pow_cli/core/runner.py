@@ -201,3 +201,71 @@ class Runner:
             raise click.ClickException(f"Isaac Sim process failed with exit code {e.returncode}")
         except KeyboardInterrupt:
             console.print("[yellow]Isaac Sim launch aborted by user.[/yellow]")
+
+    @staticmethod
+    def run_simros_container(extra_args: list[str] | None = None) -> None:
+        """Launch the pow_simros Docker container.
+
+        Reads ``enable_ros`` and ``ros_distro`` from pow.toml.
+        If ROS is disabled the user is told how to enable it.
+        """
+        config = PowConfig()
+        if config.project_root is None:
+            raise click.ClickException("Not initialized. Run `pow init` first.")
+
+        enable_ros = config.get("enable_ros", False)
+        if not enable_ros:
+            raise click.ClickException(
+                "ROS integration is disabled in pow.toml.\n"
+                "Set 'enable_ros = true' under [sim] and re-run 'pow init' to enable it."
+            )
+
+        ros_distro = config.ros_distro
+        docker_image = f"pow_simros_{ros_distro}"
+
+        # Verify image exists
+        image_check = subprocess.run(
+            ["docker", "image", "inspect", f"{docker_image}:latest"],
+            capture_output=True,
+        )
+        if image_check.returncode != 0:
+            raise click.ClickException(
+                f"Docker image '{docker_image}' not found.\n"
+                "Run 'pow init' first to build the image."
+            )
+
+        # Run xhost to allow x11 access
+        try:
+            subprocess.run(["xhost", "+"], check=True, capture_output=True)
+            console.print("[green]X11 access control unlock (xhost +)[/green]")
+        except FileNotFoundError:
+            console.print("[yellow]Warning: xhost command not found. GUI might not work.[/yellow]")
+        except subprocess.CalledProcessError:
+            console.print("[red]Error: Failed to set xhost permissions.[/red]")
+
+        #  Run docker container
+        ros_ws_path = config.ros_ws_path
+        distro_ws = ros_ws_path / f"{ros_distro}_ws"
+
+        cmd = [
+            "docker", "run", "-it", "--rm", "--net=host",
+            "--env", "DISPLAY",
+            "--env", "ROS_DOMAIN_ID",
+            "-v", f"{distro_ws}:/{ros_distro}_ws",
+            "--name", "pow_simros",
+            docker_image,
+        ]
+
+        if extra_args:
+            cmd.extend(extra_args)
+        else:
+            cmd.append("/bin/bash")
+
+        console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in cmd)}[/blue]")
+
+        try:
+            subprocess.run(cmd, check=True, env=os.environ)
+        except subprocess.CalledProcessError as e:
+            raise click.ClickException(f"Docker container exited with code {e.returncode}")
+        except KeyboardInterrupt:
+            console.print("[yellow]Container stopped by user.[/yellow]")
