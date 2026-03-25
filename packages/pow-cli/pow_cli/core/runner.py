@@ -269,3 +269,36 @@ class Runner:
             raise click.ClickException(f"Docker container exited with code {e.returncode}")
         except KeyboardInterrupt:
             console.print("[yellow]Container stopped by user.[/yellow]")
+
+    @staticmethod
+    def run_python(extra_args: list[str] | None = None) -> None:
+        """Run the Isaac Sim bundled Python interpreter.
+
+        Wraps ``<global_path>/isaacsim/<version>/python.sh``, forwarding
+        every argument to it.
+        """
+        config = PowConfig()
+        if config.project_root is None:
+            raise click.ClickException("Not initialized. Run `pow init` first.")
+
+        isaacsim_version = config.get("version", PowConfig.ISAACSIM_VERSION)
+        python_script = config.global_path / "isaacsim" / isaacsim_version / "python.sh"
+
+        if not python_script.exists():
+            raise click.ClickException(
+                f"python.sh not found at {python_script}\n"
+                "Run 'pow init' first to install Isaac Sim."
+            )
+
+        cmd = [str(python_script)]
+        if extra_args:
+            cmd.extend(extra_args)
+
+        console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in cmd)}[/blue]")
+
+        try:
+            subprocess.run(cmd, check=True, env=os.environ)
+        except subprocess.CalledProcessError as e:
+            raise click.ClickException(f"python.sh exited with code {e.returncode}")
+        except KeyboardInterrupt:
+            console.print("[yellow]Python process stopped by user.[/yellow]")

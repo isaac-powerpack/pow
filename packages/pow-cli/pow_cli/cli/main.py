@@ -8,6 +8,7 @@ from .check import check_cmd
 from .lint import lint_cmd
 from .run import run_cmd
 from .ros import ros_cmd
+from .python import python_cmd
 from .asset import asset_group
 
 
@@ -23,4 +24,5 @@ pow_group.add_command(check_cmd)
 pow_group.add_command(lint_cmd)
 pow_group.add_command(run_cmd)
 pow_group.add_command(ros_cmd)
+pow_group.add_command(python_cmd)
 pow_group.add_command(asset_group)

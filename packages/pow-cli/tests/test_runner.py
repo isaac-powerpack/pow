@@ -64,3 +64,16 @@ def test_run_isaacsim_calls_subprocess(mock_config, mocker):
     args, kwargs = mock_run.call_args
     assert "isaac-sim.sh" in args[0][0]
     assert kwargs.get("check") is True
+
+def test_run_python_calls_subprocess(mock_config, mocker):
+    mocker.patch("pathlib.Path.exists", return_value=True)
+    mock_run = mocker.patch("subprocess.run")
+
+    Runner.run_python(extra_args=["my_script.py", "--arg1"])
+
+    mock_run.assert_called_once()
+    args, kwargs = mock_run.call_args
+    assert args[0][0].endswith("python.sh")
+    assert "my_script.py" in args[0]
+    assert "--arg1" in args[0]
+    assert kwargs.get("check") is True
