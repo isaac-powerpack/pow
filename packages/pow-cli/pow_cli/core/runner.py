@@ -243,7 +243,36 @@ class Runner:
         except subprocess.CalledProcessError:
             console.print("[red]Error: Failed to set xhost permissions.[/red]")
 
-        #  Run docker container
+        # Check if the container is already running
+        container_name = "pow_simros"
+        running_check = subprocess.run(
+            ["docker", "container", "inspect", "-f", "{{.State.Running}}", container_name],
+            capture_output=True,
+            text=True,
+        )
+        container_running = running_check.returncode == 0 and running_check.stdout.strip() == "true"
+
+        if container_running:
+            # Attach to the existing container
+            console.print(f"[green]Container '{container_name}' is already running. Attaching...[/green]")
+            exec_cmd: list[str] = ["docker", "exec", "-it", container_name]
+
+            if extra_args:
+                exec_cmd.extend(extra_args)
+            else:
+                exec_cmd.append("/bin/bash")
+
+            console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in exec_cmd)}[/blue]")
+
+            try:
+                subprocess.run(exec_cmd, check=True, env=os.environ)
+            except subprocess.CalledProcessError as e:
+                raise click.ClickException(f"Docker exec exited with code {e.returncode}")
+            except KeyboardInterrupt:
+                console.print("[yellow]Detached from container.[/yellow]")
+            return
+
+        #  Run new docker container
         ros_ws_path = config.ros_ws_path
         distro_ws = ros_ws_path / f"{ros_distro}_ws"
 
@@ -252,7 +281,7 @@ class Runner:
             "--env", "DISPLAY",
             "--env", "ROS_DOMAIN_ID",
             "-v", f"{distro_ws}:/{ros_distro}_ws",
-            "--name", "pow_simros",
+            "--name", container_name,
             docker_image,
         ]
 
