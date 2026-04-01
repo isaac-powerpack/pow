@@ -9,6 +9,7 @@
 Key features include:
 
 - 🛠️ CLI tools — to streamline Isaac ROS and Isaac Sim project setup and management
+- 🪻 Foxglove Studio extensions — for visualizing and debugging Isaac ROS data
 
 🚧 This project is in early development. Features and APIs are still evolving and subject to breaking changes.
 
