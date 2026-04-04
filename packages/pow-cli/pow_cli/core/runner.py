@@ -11,6 +11,7 @@ import click
 from rich.console import Console
 
 from .models.pow_config import PowConfig
+from .ros_manager import RosManager
 
 console = Console()
 
@@ -65,79 +66,6 @@ class Runner:
         return {"status": "failed"}
 
     @staticmethod
-    def source_setup_file(
-        file_path: Path,
-        shell_type: str,
-        env: dict[str, str] | None = None,
-    ) -> dict[str, str]:
-        """Source a shell setup file and return the resulting environment variables."""
-        safe_path = shlex.quote(str(file_path))
-        command = [
-            shell_type,
-            "-c",
-            f"source {safe_path} && env",
-        ]
-
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=True,
-                env=env,
-            )
-
-            new_env = {}
-            for line in result.stdout.splitlines():
-                if "=" in line:
-                    key, _, value = line.partition("=")
-                    new_env[key] = value
-
-            return new_env
-
-        except subprocess.CalledProcessError as e:
-            raise click.ClickException(
-                click.style(
-                    f"Failed to source setup file {file_path}: {e.stderr}",
-                    fg="red",
-                )
-            )
-
-    @staticmethod
-    def source_isaacsim_ros_workspace(config: PowConfig) -> dict:
-        """Check and prepare ROS workspace environment variables."""
-        ros_ws_path = config.ros_ws_path
-        ros_distro = config.ros_distro
-
-        shell_path = os.environ.get("SHELL", "")
-        shell_type = Path(shell_path).name if shell_path else "bash"
-
-        distro_local_setup = (
-            ros_ws_path
-            / "build_ws"
-            / ros_distro
-            / f"{ros_distro}_ws"
-            / "install"
-            / f"local_setup.{shell_type}"
-        )
-        isaac_sim_ros_setup = (
-            ros_ws_path
-            / "build_ws"
-            / ros_distro
-            / "isaac_sim_ros_ws"
-            / "install"
-            / f"local_setup.{shell_type}"
-        )
-
-        if not distro_local_setup.exists() or not isaac_sim_ros_setup.exists():
-            raise click.ClickException(f"ROS setup files not found. Are you sure you ran `pow init` properly?")
-
-        distro_env = Runner.source_setup_file(distro_local_setup, shell_type, env=os.environ.copy())
-        output_env = Runner.source_setup_file(isaac_sim_ros_setup, shell_type, env=distro_env)
-
-        return output_env
-
-    @staticmethod
     def build_launch_command(
         config: PowConfig,
         profile_name: str = "default",
@@ -182,7 +110,7 @@ class Runner:
             raise click.ClickException("Unsupported platform. Only x86_64 is supported by Isaac Sim.")
 
         enable_ros = config.get("enable_ros", False, profile=profile)
-        source_env = Runner.source_isaacsim_ros_workspace(config) if enable_ros else os.environ.copy()
+        source_env = RosManager.source_isaacsim_ros_workspace(config) if enable_ros else os.environ.copy()
 
         cmd = Runner.build_launch_command(config, profile, extra_args)
 
@@ -201,103 +129,6 @@ class Runner:
             raise click.ClickException(f"Isaac Sim process failed with exit code {e.returncode}")
         except KeyboardInterrupt:
             console.print("[yellow]Isaac Sim launch aborted by user.[/yellow]")
-
-    @staticmethod
-    def run_simros_container(extra_args: list[str] | None = None) -> None:
-        """Launch the pow_simros Docker container.
-
-        Reads ``enable_ros`` and ``ros_distro`` from pow.toml.
-        If ROS is disabled the user is told how to enable it.
-        """
-        config = PowConfig()
-        if config.project_root is None:
-            raise click.ClickException("Not initialized. Run `pow init` first.")
-
-        enable_ros = config.get("enable_ros", False)
-        if not enable_ros:
-            raise click.ClickException(
-                "ROS integration is disabled in pow.toml.\n"
-                "Set 'enable_ros = true' under [sim] and re-run 'pow init' to enable it."
-            )
-
-        ros_distro = config.ros_distro
-        docker_image = f"pow_simros_{ros_distro}"
-
-        # Verify image exists
-        image_check = subprocess.run(
-            ["docker", "image", "inspect", f"{docker_image}:latest"],
-            capture_output=True,
-        )
-        if image_check.returncode != 0:
-            raise click.ClickException(
-                f"Docker image '{docker_image}' not found.\n"
-                "Run 'pow init' first to build the image."
-            )
-
-        # Run xhost to allow x11 access
-        try:
-            subprocess.run(["xhost", "+"], check=True, capture_output=True)
-            console.print("[green]X11 access control unlock (xhost +)[/green]")
-        except FileNotFoundError:
-            console.print("[yellow]Warning: xhost command not found. GUI might not work.[/yellow]")
-        except subprocess.CalledProcessError:
-            console.print("[red]Error: Failed to set xhost permissions.[/red]")
-
-        # Check if the container is already running
-        container_name = "pow_simros"
-        running_check = subprocess.run(
-            ["docker", "container", "inspect", "-f", "{{.State.Running}}", container_name],
-            capture_output=True,
-            text=True,
-        )
-        container_running = running_check.returncode == 0 and running_check.stdout.strip() == "true"
-
-        if container_running:
-            # Attach to the existing container
-            console.print(f"[green]Container '{container_name}' is already running. Attaching...[/green]")
-            exec_cmd: list[str] = ["docker", "exec", "-it", container_name]
-
-            if extra_args:
-                exec_cmd.extend(extra_args)
-            else:
-                exec_cmd.append("/bin/bash")
-
-            console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in exec_cmd)}[/blue]")
-
-            try:
-                subprocess.run(exec_cmd, check=True, env=os.environ)
-            except subprocess.CalledProcessError as e:
-                raise click.ClickException(f"Docker exec exited with code {e.returncode}")
-            except KeyboardInterrupt:
-                console.print("[yellow]Detached from container.[/yellow]")
-            return
-
-        #  Run new docker container
-        ros_ws_path = config.ros_ws_path
-        distro_ws = ros_ws_path / f"{ros_distro}_ws"
-
-        cmd = [
-            "docker", "run", "-it", "--rm", "--net=host",
-            "--env", "DISPLAY",
-            "--env", "ROS_DOMAIN_ID",
-            "-v", f"{distro_ws}:/{ros_distro}_ws",
-            "--name", container_name,
-            docker_image,
-        ]
-
-        if extra_args:
-            cmd.extend(extra_args)
-        else:
-            cmd.append("/bin/bash")
-
-        console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in cmd)}[/blue]")
-
-        try:
-            subprocess.run(cmd, check=True, env=os.environ)
-        except subprocess.CalledProcessError as e:
-            raise click.ClickException(f"Docker container exited with code {e.returncode}")
-        except KeyboardInterrupt:
-            console.print("[yellow]Container stopped by user.[/yellow]")
 
     @staticmethod
     def run_python(extra_args: list[str] | None = None) -> None:

@@ -22,7 +22,7 @@ class TestInitCmd:
             return_value=True
         )
         self.mock_setup_ros = mocker.patch(
-            "pow_cli.core.initializer.Initializer.setup_ros_workspace",
+            "pow_cli.core.ros_manager.RosManager.setup_ros_workspace",
             return_value={
                 "status": "success",
                 "ros_distro": "humble",

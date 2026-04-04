@@ -12,6 +12,7 @@ from rich.text import Text
 from ..common.utils import console
 from ..core.models.pow_config import PowConfig
 from ..core.initializer import Initializer
+from ..core.ros_manager import RosManager
 
 
 
@@ -73,7 +74,7 @@ def _step1_check_config(global_dir_name: str) -> bool:
     return True
 
 
-def _step2_check_existing_config(manager: Initializer) -> bool:
+def _step2_check_existing_config(initializer: Initializer) -> bool:
     """Ask whether to override an existing pow.toml. Returns override flag."""
     if not Path("pow.toml").exists():
         console.print(
@@ -94,17 +95,17 @@ def _step2_check_existing_config(manager: Initializer) -> bool:
         console.print("   [green]Proceeding and will override pow.toml.[/green]")
     else:
         console.print("   [yellow]Proceeding with existing pow.toml.[/yellow]")
-        manager.read_config()
+        initializer.read_config()
         console.print("   [green]✔ Read existing pow.toml configuration.[/green]")
     return override
 
 
-def _step3_global_folder(manager: Initializer, global_path):
+def _step3_global_folder(initializer: Initializer, global_path):
     """Create the .pow global folder and print the result."""
     console.print(
         f"[bold blue][3/10] 📂 Global Folder:[/bold blue] Preparing [dim]{global_path}[/dim]..."
     )
-    init_data = manager.create_global_folder()
+    init_data = initializer.create_global_folder()
 
     if init_data["global_existed"]:
         console.print(
@@ -115,7 +116,7 @@ def _step3_global_folder(manager: Initializer, global_path):
             f"   [green]✔[/green] Global directory [dim]{global_path}[/dim] prepared successfully."
         )
 
-    system_toml_result = manager.create_system_toml()
+    system_toml_result = initializer.create_system_toml()
     if system_toml_result["status"] == "Created":
         console.print(
             f"   [green]✔[/green] Created system.toml: [dim]{system_toml_result['path']}[/dim]"
@@ -126,7 +127,7 @@ def _step3_global_folder(manager: Initializer, global_path):
         )
 
 
-def _step4_download_isaacsim(manager: Initializer) -> dict | None:
+def _step4_download_isaacsim(initializer: Initializer) -> dict | None:
     """Download Isaac Sim with a Rich progress bar. Returns result dict or None on error."""
     console.print("[bold blue][4/10] 📦 Isaac Sim App:[/bold blue] Installing Isaac Sim 5.1.0...")
 
@@ -194,7 +195,7 @@ def _step4_download_isaacsim(manager: Initializer) -> dict | None:
                 time.sleep(1)
 
         try:
-            result = manager.download_isaacsim(
+            result = initializer.download_isaacsim(
                 progress_callback=progress_callback,
                 status_callback=status_callback,
             )
@@ -216,19 +217,20 @@ def _step4_download_isaacsim(manager: Initializer) -> dict | None:
     return result
 
 
-def _step5_optimization(manager: Initializer, isaacsim_path: str):
+def _step5_optimization(initializer: Initializer, isaacsim_path: str):
     """Apply Isaac Sim post-install fixes."""
     console.print("[bold blue][5/10] ⚡ Optimization:[/bold blue] Applying Isaac Sim fixes...")
     with console.status("Fixing isaacsim.asset.browser cache file missing..."):
-        fixed = manager.fix_asset_browser_cache(isaacsim_path)
+        fixed = initializer.fix_asset_browser_cache(isaacsim_path)
     if fixed:
         console.print("   [green]✔[/green] Created missing cache file.")
     else:
         console.print("   [yellow]✔[/yellow] Cache file already exists.")
 
 
-def _step6_ros_integration(manager: Initializer, global_dir_name: str, forced_value: bool | None = None) -> bool:
+def _step6_ros_integration(initializer: Initializer, global_dir_name: str, forced_value: bool | None = None) -> bool:
     """Prompt for ROS integration and set it up. Returns whether ROS was enabled."""
+    ros_mgr = RosManager(config=initializer.config)
     console.print("[bold blue][6/10] 🤖 ROS Integration:[/bold blue]")
     
     if forced_value is not None:
@@ -263,7 +265,7 @@ def _step6_ros_integration(manager: Initializer, global_dir_name: str, forced_va
 
     with console.status("Preparing ROS workspace...") as status:
         try:
-            ros_res = manager.setup_ros_workspace(status_callback=ros_status_callback)
+            ros_res = ros_mgr.setup_ros_workspace(status_callback=ros_status_callback)
         except Exception as e:
             console.print(f"   [bold red]❌ ROS Setup Error:[/bold red] {e}")
             return True  # user chose ROS, even if it failed
@@ -296,7 +298,7 @@ def _step6_ros_integration(manager: Initializer, global_dir_name: str, forced_va
 
     with console.status("Building pow_simros image...") as simros_status:
         try:
-            simros_res = manager.build_simros_image(status_callback=simros_status_callback)
+            simros_res = ros_mgr.build_simros_image(status_callback=simros_status_callback)
         except Exception as e:
             console.print(f"   [bold red]❌ pow_simros Build Error:[/bold red] {e}")
             return True
@@ -310,7 +312,7 @@ def _step6_ros_integration(manager: Initializer, global_dir_name: str, forced_va
     return True
 
 
-def _step7_project_structure(manager: Initializer):
+def _step7_project_structure(initializer: Initializer):
     """Create local project folders and .gitignore."""
     console.print("[bold blue][7/10] 🏗️ Project Structure:[/bold blue] Creating local folders...")
     local_folders = ["exts", "scripts", ".modules", ".assets", "standalone", "usda"]
@@ -323,7 +325,7 @@ def _step7_project_structure(manager: Initializer):
         task = progress.add_task(
             description="Setting up project folders...", total=len(local_folders) + 1
         )
-        struct_data = manager.setup_project_structure(local_folders)
+        struct_data = initializer.setup_project_structure(local_folders)
         for res in struct_data["results"]:
             progress.update(task, advance=1, description=f"Setting up {res['path']}...")
             time.sleep(0.1)
@@ -339,10 +341,10 @@ def _step7_project_structure(manager: Initializer):
         console.print("   [yellow]✔[/yellow] .gitignore already exists. [dim]Kept existing.[/dim]")
 
 
-def _step8_project_link(manager: Initializer):
+def _step8_project_link(initializer: Initializer):
     """Symlink managed Isaac Sim to local project."""
     console.print("[bold blue][8/10] 🔗 Project Link:[/bold blue] Linking Isaac Sim to project...")
-    result = manager.link_managed_isaacsim()
+    result = initializer.link_managed_isaacsim()
     if result["status"] == "Created":
         console.print(f"   [green]✔[/green] Created symlink: [dim]{result['path']}[/dim]")
     elif result["status"] == "Existed":
@@ -351,10 +353,10 @@ def _step8_project_link(manager: Initializer):
         console.print(f"   [bold red]❌ Error:[/bold red] {result['message']}")
 
 
-def _step9_vscode_setup(manager: Initializer):
+def _step9_vscode_setup(initializer: Initializer):
     """Setup VSCode configuration for the project."""
     console.print("[bold blue][9/10] 💻 VSCode Config:[/bold blue] Setting up VSCode configs...")
-    result = manager.setup_vscode_configs()
+    result = initializer.setup_vscode_configs()
     if result["status"] == "Success":
         for res in result["results"]:
             status_symbol = "[green]✔[/green]" if "patched" in res["status"] or res["status"] == "Copied" else "[yellow]⚠[/yellow]"
@@ -363,10 +365,10 @@ def _step9_vscode_setup(manager: Initializer):
         console.print(f"   [bold red]❌ Error:[/bold red] {result['message']}")
 
 
-def _step10_finalize(manager: Initializer, override_pow_toml: bool, ros_enabled: bool):
+def _step10_finalize(initializer: Initializer, override_pow_toml: bool, ros_enabled: bool):
     """Generate pow.toml configuration."""
     console.print("[bold blue][10/10] ✅ Finalizing:[/bold blue] Generating configuration...")
-    result = manager.create_pow_toml(override=override_pow_toml, enable_ros=ros_enabled)
+    result = initializer.create_pow_toml(override=override_pow_toml, enable_ros=ros_enabled)
     if result["status"] == "Created":
         console.print("   [green]✔[/green] Created pow.toml (from template)")
     elif result["status"] == "Existed":
@@ -380,8 +382,8 @@ def _step10_finalize(manager: Initializer, override_pow_toml: bool, ros_enabled:
 @click.command(name="init")
 def init_cmd():
     """Initialize Isaac ROS project (Mockup with Rich)."""
-    manager = Initializer()
-    config = manager.get_config_path()
+    initializer = Initializer()
+    config = initializer.get_config_path()
     global_dir_name = config["global_dir_name"]
     global_path = config["global_path"]
 
@@ -395,30 +397,30 @@ def init_cmd():
     if not _step1_check_config(global_dir_name):
         return
 
-    override_pow_toml = _step2_check_existing_config(manager)
-    _step3_global_folder(manager, global_path)
+    override_pow_toml = _step2_check_existing_config(initializer)
+    _step3_global_folder(initializer, global_path)
 
-    download_result = _step4_download_isaacsim(manager)
+    download_result = _step4_download_isaacsim(initializer)
     if download_result is None:
         return
 
-    _step5_optimization(manager, download_result["path"])
+    _step5_optimization(initializer, download_result["path"])
     
     # Use existing ROS setting if not overriding pow.toml
     ros_forced = None
     if not override_pow_toml:
         try:
-            ros_forced = manager.config.get("enable_ros", False)
+            ros_forced = initializer.config.get("enable_ros", False)
         except Exception:
             pass
 
-    ros_enabled = _step6_ros_integration(manager, global_dir_name, forced_value=ros_forced)
-    _step7_project_structure(manager)
-    _step8_project_link(manager)
-    _step9_vscode_setup(manager)
+    ros_enabled = _step6_ros_integration(initializer, global_dir_name, forced_value=ros_forced)
+    _step7_project_structure(initializer)
+    _step8_project_link(initializer)
+    _step9_vscode_setup(initializer)
 
     if override_pow_toml:
-        _step10_finalize(manager, override_pow_toml, ros_enabled)
+        _step10_finalize(initializer, override_pow_toml, ros_enabled)
     else:
         console.print("[bold blue][10/10] ✅ Finalizing:[/bold blue] [yellow]Kept existing pow.toml[/yellow]")
 

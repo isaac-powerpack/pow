@@ -3,7 +3,7 @@
 import click
 from rich.panel import Panel
 from ..common.utils import console
-from ..core.runner import Runner
+from ..core.ros_manager import RosManager
 
 
 @click.command(
@@ -27,7 +27,7 @@ def ros_cmd(ctx: click.Context):
     """
     extra_args = ctx.args or None
     try:
-        Runner.run_simros_container(extra_args=extra_args)
+        RosManager.run_simros_container(extra_args=extra_args)
     except click.ClickException:
         raise
     except Exception as e:
