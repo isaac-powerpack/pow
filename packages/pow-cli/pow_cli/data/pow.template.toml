@@ -4,6 +4,7 @@ ext_folders = ["./exts"]
 cpu_performance_mode = false
 headless = false
 enable_ros = false
+isaacsim_ros_ws = "~/IsaacSim-ros_workspaces"
 # list your default enable extensions
 exts = ["isaacsim.code_editor.vscode"]
 # Disable raytracingMotion by default to improve performance on lower-end hardware.

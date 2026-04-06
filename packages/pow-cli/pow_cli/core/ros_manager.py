@@ -105,11 +105,17 @@ class RosManager:
 
     # ── Workspace setup (from Initializer) ───────────────────────────────────
 
-    def setup_ros_workspace(self, status_callback=None) -> dict:
-        """Setup ROS workspace for Isaac Sim project in .pow/sim-ros."""
+    def setup_ros_workspace(self, status_callback=None, ws_path: "Path | None" = None) -> dict:
+        """Setup ROS workspace for Isaac Sim project.
+
+        Args:
+            ws_path: Explicit workspace path override.  When ``None`` the
+                     path is read from ``self.config.ros_ws_path`` (i.e.
+                     the ``isaacsim_ros_ws`` key in pow.toml).
+        """
         ros_distro = self.config.ros_distro
         ubuntu_version = self.config.ubuntu_version
-        clone_path = self.config.ros_ws_path
+        clone_path = ws_path or self.config.ros_ws_path
 
         # Clone workspace if not already cloned
         if not (clone_path / ".git").exists():
@@ -176,14 +182,19 @@ class RosManager:
             "path": str(clone_path),
         }
 
-    def build_simros_image(self, status_callback=None) -> dict:
+    def build_simros_image(self, status_callback=None, ws_path: "Path | None" = None) -> dict:
         """Build pow_simros_<distro> Docker image using Dockerfile.simros.
 
         Skips the build if the image already exists locally.
+
+        Args:
+            ws_path: Explicit workspace path override.  When ``None`` the
+                     path is read from ``self.config.ros_ws_path``.
         """
+        ros_ws = ws_path or self.config.ros_ws_path
         ros_distro = self.config.ros_distro
         docker_image = f"pow_simros_{ros_distro}"
-        distro_ws = self.config.ros_ws_path / f"{ros_distro}_ws"
+        distro_ws = ros_ws / f"{ros_distro}_ws"
         dockerfile_path = Path(__file__).parent.parent / "docker" / "Dockerfile.simros"
 
         # Check if image already exists
@@ -208,7 +219,7 @@ class RosManager:
                 "--build-context", f"ros_ws={distro_ws}",
                 ".",
             ],
-            cwd=str(self.config.ros_ws_path),
+            cwd=str(ros_ws),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

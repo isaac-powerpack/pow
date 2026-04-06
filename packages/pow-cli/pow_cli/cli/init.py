@@ -6,7 +6,7 @@ from pathlib import Path
 import click
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
-from rich.prompt import Confirm
+from rich.prompt import Confirm, Prompt
 from rich.text import Text
 
 from ..common.utils import console
@@ -228,8 +228,18 @@ def _step5_optimization(initializer: Initializer, isaacsim_path: str):
         console.print("   [yellow]✔[/yellow] Cache file already exists.")
 
 
-def _step6_ros_integration(initializer: Initializer, global_dir_name: str, forced_value: bool | None = None) -> bool:
-    """Prompt for ROS integration and set it up. Returns whether ROS was enabled."""
+def _step6_ros_integration(
+    initializer: Initializer,
+    global_dir_name: str,
+    forced_value: bool | None = None,
+) -> tuple[bool, str]:
+    """Prompt for ROS integration and set it up.
+
+    Returns:
+        (ros_enabled, isaacsim_ros_ws)  –  whether ROS was enabled and the
+        tilde-relative path chosen for IsaacSim-ros_workspaces.
+    """
+    default_ws = "~/IsaacSim-ros_workspaces"
     ros_mgr = RosManager(config=initializer.config)
     console.print("[bold blue][6/10] 🤖 ROS Integration:[/bold blue]")
     
@@ -242,7 +252,24 @@ def _step6_ros_integration(initializer: Initializer, global_dir_name: str, force
 
     if not enabled:
         console.print("   [yellow]⊖[/yellow] Skipping ROS integration.")
-        return False
+        return False, default_ws
+
+    # Ask for the clone path (tilde-relative)
+    ws_path = Prompt.ask(
+        "   Path to clone IsaacSim-ros_workspaces",
+        default=default_ws,
+    )
+    # Normalise: keep tilde-relative for storage, but resolve for display
+    if ws_path.startswith("~"):
+        display_path = ws_path
+    else:
+        # Convert absolute paths back to tilde form when possible
+        home = str(Path.home())
+        if ws_path.startswith(home):
+            display_path = "~" + ws_path[len(home):]
+        else:
+            display_path = ws_path
+    console.print(f"   [dim]Workspace path:[/dim] {display_path}")
 
     ros_cloned = False
     ros_already_built = False
@@ -263,18 +290,23 @@ def _step6_ros_integration(initializer: Initializer, global_dir_name: str, force
             line = state[len("building:"):]
             status.update(f"[bold green]Docker build:[/bold green] [dim]{line[:80]}[/dim]")
 
+    # Resolve the tilde path for actual filesystem operations
+    resolved_ws = Path(ws_path).expanduser()
+
     with console.status("Preparing ROS workspace...") as status:
         try:
-            ros_res = ros_mgr.setup_ros_workspace(status_callback=ros_status_callback)
+            ros_res = ros_mgr.setup_ros_workspace(
+                status_callback=ros_status_callback,
+                ws_path=resolved_ws,
+            )
         except Exception as e:
             console.print(f"   [bold red]❌ ROS Setup Error:[/bold red] {e}")
-            return True  # user chose ROS, even if it failed
+            return True, display_path  # user chose ROS, even if it failed
 
-    clone_label = global_dir_name + "/sim-ros/IsaacSim-ros_workspaces"
     if ros_cloned:
-        console.print(f"   [green]✔[/green] Cloned IsaacSim-ros_workspaces to [dim]{clone_label}[/dim]")
+        console.print(f"   [green]✔[/green] Cloned IsaacSim-ros_workspaces to [dim]{display_path}[/dim]")
     else:
-        console.print(f"   [yellow]✔[/yellow] IsaacSim-ros_workspaces already available in [dim]{clone_label}[/dim]")
+        console.print(f"   [yellow]✔[/yellow] IsaacSim-ros_workspaces already available in [dim]{display_path}[/dim]")
 
     distro_label = f"ROS [bold]{ros_res['ros_distro']}[/bold] (Ubuntu {ros_res['ubuntu_version']})"
     if ros_already_built:
@@ -298,10 +330,13 @@ def _step6_ros_integration(initializer: Initializer, global_dir_name: str, force
 
     with console.status("Building pow_simros image...") as simros_status:
         try:
-            simros_res = ros_mgr.build_simros_image(status_callback=simros_status_callback)
+            simros_res = ros_mgr.build_simros_image(
+                status_callback=simros_status_callback,
+                ws_path=resolved_ws,
+            )
         except Exception as e:
             console.print(f"   [bold red]❌ pow_simros Build Error:[/bold red] {e}")
-            return True
+            return True, display_path
 
     simros_label = f"pow_simros_[bold]{ros_res['ros_distro']}[/bold]"
     if simros_already_built:
@@ -309,7 +344,7 @@ def _step6_ros_integration(initializer: Initializer, global_dir_name: str, force
     else:
         console.print(f"   [green]✔[/green] Docker image {simros_label} built successfully.")
 
-    return True
+    return True, display_path
 
 
 def _step7_project_structure(initializer: Initializer):
@@ -365,10 +400,19 @@ def _step9_vscode_setup(initializer: Initializer):
         console.print(f"   [bold red]❌ Error:[/bold red] {result['message']}")
 
 
-def _step10_finalize(initializer: Initializer, override_pow_toml: bool, ros_enabled: bool):
+def _step10_finalize(
+    initializer: Initializer,
+    override_pow_toml: bool,
+    ros_enabled: bool,
+    isaacsim_ros_ws: str = "~/IsaacSim-ros_workspaces",
+):
     """Generate pow.toml configuration."""
     console.print("[bold blue][10/10] ✅ Finalizing:[/bold blue] Generating configuration...")
-    result = initializer.create_pow_toml(override=override_pow_toml, enable_ros=ros_enabled)
+    result = initializer.create_pow_toml(
+        override=override_pow_toml,
+        enable_ros=ros_enabled,
+        isaacsim_ros_ws=isaacsim_ros_ws,
+    )
     if result["status"] == "Created":
         console.print("   [green]✔[/green] Created pow.toml (from template)")
     elif result["status"] == "Existed":
@@ -414,13 +458,15 @@ def init_cmd():
         except Exception:
             pass
 
-    ros_enabled = _step6_ros_integration(initializer, global_dir_name, forced_value=ros_forced)
+    ros_enabled, isaacsim_ros_ws = _step6_ros_integration(
+        initializer, global_dir_name, forced_value=ros_forced,
+    )
     _step7_project_structure(initializer)
     _step8_project_link(initializer)
     _step9_vscode_setup(initializer)
 
     if override_pow_toml:
-        _step10_finalize(initializer, override_pow_toml, ros_enabled)
+        _step10_finalize(initializer, override_pow_toml, ros_enabled, isaacsim_ros_ws)
     else:
         console.print("[bold blue][10/10] ✅ Finalizing:[/bold blue] [yellow]Kept existing pow.toml[/yellow]")
 

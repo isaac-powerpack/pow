@@ -307,7 +307,12 @@ class Initializer:
         except Exception as e:
             return {"status": "Error", "message": str(e)}
 
-    def create_pow_toml(self, override: bool = False, enable_ros: bool = False) -> dict:
+    def create_pow_toml(
+        self,
+        override: bool = False,
+        enable_ros: bool = False,
+        isaacsim_ros_ws: str = "~/IsaacSim-ros_workspaces",
+    ) -> dict:
         """Copy pow.template.toml to pow.toml and patch settings from user choices."""
         # Initialize git if not already done
         self.init_git()
@@ -322,7 +327,11 @@ class Initializer:
             return {"status": "Template not found", "path": str(pow_toml_path)}
 
         shutil.copy(template_path, pow_toml_path)
-        self._patch_pow_toml(pow_toml_path, enable_ros=enable_ros)
+        self._patch_pow_toml(
+            pow_toml_path,
+            enable_ros=enable_ros,
+            isaacsim_ros_ws=isaacsim_ros_ws,
+        )
 
         return {"status": "Created", "path": str(pow_toml_path)}
 
@@ -439,7 +448,12 @@ class Initializer:
             if zip_path.exists():
                 zip_path.unlink()
 
-    def _patch_pow_toml(self, pow_toml_path: Path, enable_ros: bool):
+    def _patch_pow_toml(
+        self,
+        pow_toml_path: Path,
+        enable_ros: bool,
+        isaacsim_ros_ws: str = "~/IsaacSim-ros_workspaces",
+    ):
         """Patch values in pow.toml to reflect user choices made during init."""
         content = pow_toml_path.read_text()
         
@@ -449,7 +463,11 @@ class Initializer:
         # Since the template already has [sim], we just update enable_ros within it.
         if "sim" in doc and isinstance(doc["sim"], dict):
             doc["sim"]["enable_ros"] = enable_ros
+            doc["sim"]["isaacsim_ros_ws"] = isaacsim_ros_ws
         else:
-            doc["sim"] = {"enable_ros": enable_ros}
+            doc["sim"] = {
+                "enable_ros": enable_ros,
+                "isaacsim_ros_ws": isaacsim_ros_ws,
+            }
             
         pow_toml_path.write_text(tomlkit.dumps(doc))

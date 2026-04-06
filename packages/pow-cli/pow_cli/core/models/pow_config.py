@@ -120,8 +120,20 @@ class PowConfig:
 
     @property
     def ros_ws_path(self) -> Path:
-        """Absolute path to the ROS workspaces directory."""
-        return self.global_path / "sim-ros" / "IsaacSim-ros_workspaces"
+        """Absolute path to the ROS workspaces directory.
+
+        Reads ``isaacsim_ros_ws`` from pow.toml ``[sim]``.  The value is
+        stored as a tilde-relative string (e.g. ``~/IsaacSim-ros_workspaces``)
+        and expanded to an absolute path here.  Falls back to
+        ``~/IsaacSim-ros_workspaces`` when the key is missing or pow.toml
+        is not loaded.
+        """
+        default = "~/IsaacSim-ros_workspaces"
+        try:
+            raw = self.get("isaacsim_ros_ws", default)
+        except RuntimeError:
+            raw = default
+        return Path(raw).expanduser()
 
     @property
     def ros_distro(self) -> str:
