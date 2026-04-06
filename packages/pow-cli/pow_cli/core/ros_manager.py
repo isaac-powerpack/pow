@@ -305,6 +305,9 @@ class RosManager:
         uid = os.getuid()
         gid = os.getgid()
 
+        host_home = os.path.expanduser("~")
+        ros_config_dir = os.path.join(host_home, ".ros")
+
         cmd = [
             "docker", "run", "-it", "--rm", "--net=host",
             "-u", f"{uid}:{gid}",
@@ -314,8 +317,14 @@ class RosManager:
             "--env", "ROS_DOMAIN_ID",
             "-v", f"{distro_ws}:/{ros_distro}_ws",
             "--name", container_name,
-            docker_image,
         ]
+
+        if os.path.exists(ros_config_dir):
+            cmd.extend(["-v", f"{ros_config_dir}:{host_home}/.ros"])
+        cmd.extend([
+            "--name", container_name,
+            docker_image,
+        ])
 
         if extra_args:
             cmd.extend(extra_args)
