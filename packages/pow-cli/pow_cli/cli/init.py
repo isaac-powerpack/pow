@@ -412,7 +412,20 @@ def _step10_finalize(
     isaacsim_ros_ws: str = "~/IsaacSim-ros_workspaces",
 ):
     """Generate pow.toml configuration."""
+
+    
     console.print("[bold blue][10/10] ✅ Finalizing:[/bold blue] Generating configuration...")
+    
+    # Ensure user-home alias in Omniverse config
+    alias_result = initializer.setup_omniverse_user_home_alias()
+    if alias_result["status"] == "created":
+        console.print(f"   [green]✔[/green] Added user-home alias in [dim]{alias_result['path']}[/dim]")
+    elif alias_result["status"] == "updated":
+        console.print(f"   [green]✔[/green] Updated user-home alias in [dim]{alias_result['path']}[/dim]")
+    else:
+        console.print(f"   [yellow]✔[/yellow] user-home alias already set in [dim]{alias_result['path']}[/dim]")
+
+    # Create pow.toml
     result = initializer.create_pow_toml(
         override=override_pow_toml,
         enable_ros=ros_enabled,
@@ -472,10 +485,7 @@ def init_cmd():
     _step8_project_link(initializer)
     _step9_vscode_setup(initializer)
 
-    if override_pow_toml:
-        _step10_finalize(initializer, override_pow_toml, ros_enabled, isaacsim_ros_ws)
-    else:
-        console.print("[bold blue][10/10] ✅ Finalizing:[/bold blue] [yellow]Kept existing pow.toml[/yellow]")
+    _step10_finalize(initializer, override_pow_toml, ros_enabled, isaacsim_ros_ws)
 
     console.print(
         Panel(

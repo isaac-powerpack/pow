@@ -471,3 +471,39 @@ class Initializer:
             }
             
         pow_toml_path.write_text(tomlkit.dumps(doc))
+
+    def setup_omniverse_user_home_alias(self) -> dict:
+        """Ensure ``user-home`` alias is set in the Omniverse config.
+
+        Reads (or creates) ``~/.nvidia-omniverse/config/omniverse.toml`` and
+        sets ``[aliases]."user-home"`` to the current user's home directory.
+
+        Returns:
+            dict with keys ``status`` ("created" | "updated" | "unchanged")
+            and ``path`` (the config file path).
+        """
+        config_path = Path.home() / ".nvidia-omniverse" / "config" / "omniverse.toml"
+        home_dir = str(Path.home())
+
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if config_path.exists():
+            doc = tomlkit.parse(config_path.read_text())
+        else:
+            doc = tomlkit.document()
+
+        if "aliases" not in doc:
+            doc.add("aliases", tomlkit.table())
+
+        aliases = doc["aliases"]
+        existing = aliases.get("user-home")
+
+        if existing == home_dir:
+            return {"status": "unchanged", "path": str(config_path)}
+
+        status = "updated" if existing is not None else "created"
+        aliases["user-home"] = home_dir
+        config_path.write_text(tomlkit.dumps(doc))
+
+        return {"status": status, "path": str(config_path)}
+
