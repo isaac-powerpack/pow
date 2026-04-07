@@ -74,7 +74,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-rosdep \
     ros-humble-vision-msgs \
     ros-humble-ackermann-msgs \
+    sudo \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
+
+# Allow passwordless sudo for any user (the container runs as the host
+# UID/GID via -u, so /etc/shadow is unavailable and password-based sudo
+# always fails).
+RUN echo 'ALL ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/allow-all \
+    && chmod 0440 /etc/sudoers.d/allow-all
 
 # Make sure rosdep is initialized
 RUN rosdep update || true
@@ -103,6 +111,27 @@ RUN cat > /ros_config/entrypoint.sh <<'ENTRYEOF'
 #!/bin/bash
 set -e
 
+# ── Create user entry for the mapped host UID/GID ─────────────────────────
+# When the container is started with -u UID:GID the numeric IDs may not
+# exist in /etc/passwd or /etc/group, causing "I have no name!" prompts
+# and sudo failures.  We create the entries on the fly.
+
+if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
+    getent group $HOST_GID >/dev/null || groupadd -f -g $HOST_GID hostgroup
+    
+    if ! getent passwd $HOST_UID >/dev/null; then
+        useradd -m -u $HOST_UID -g $HOST_GID -G sudo -s /bin/bash hostuser
+        echo "hostuser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/hostuser
+        chmod 0440 /etc/sudoers.d/hostuser
+    fi
+    
+    # Set target user and fix HOME variable
+    TARGET_USER=$(getent passwd $HOST_UID | cut -d: -f1)
+    export HOME=$(getent passwd $HOST_UID | cut -d: -f6)
+else
+    TARGET_USER="root"
+fi
+
 # ── FastDDS configuration resolution ──────────────────────────────────────
 # Priority: 1) user-mounted ~/.ros/fastdds.xml  2) workspace fastdds.xml
 #           3) embedded default
@@ -117,16 +146,19 @@ fi
 # ── Source ROS 2 base ─────────────────────────────────────────────────────
 source /opt/ros/${ROS_DISTRO}/setup.bash
 
-# ── Source pre-built workspace overlay ────────────────────────────────────
+# ── 4. Source pre-built workspace overlay ─────────────────────────────────
 if [ -f "/${ROS_DISTRO}_ws/install/local_setup.bash" ]; then
     source "/${ROS_DISTRO}_ws/install/local_setup.bash"
 else
     cd /${ROS_DISTRO}_ws
-    colcon build
+    # If we need to build, do it AS the new user so permissions are correct
+    gosu $TARGET_USER colcon build
     source install/local_setup.bash
 fi
 
-exec "$@"
+# ── 5. Drop privileges and execute command ────────────────────────────────
+# Use gosu to switch from root to the dynamically created user
+exec gosu $TARGET_USER "$@"
 ENTRYEOF
 
 RUN chmod +x /ros_config/entrypoint.sh
