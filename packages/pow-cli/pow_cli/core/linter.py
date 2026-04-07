@@ -109,46 +109,113 @@ def lint_file(file_path: Path, alias_config: AliasConfig | None = None) -> List[
 
     Returns a list of LintIssue objects, one per problematic line.
     """
+    from .models.pow_config import PowConfig
+
     issues: List[LintIssue] = []
     text = file_path.read_text(encoding="utf-8")
 
-    for line_num, line in enumerate(text.splitlines(), start=1):
-        for match in _RELATIVE_POW_ASSETS_RE.finditer(line):
-            asset_subpath = match.group(1)
-            original = match.group(0)
+    # ── Prepare detection patterns ─────────────────────────────────────────
+    home_dir = str(Path.home())
+    # General rule: any @/home/user/...@ → @user-home/...@
+    home_abs_re = re.compile(r"@" + re.escape(home_dir) + r"/([^@]+)@")
 
-            # Routing rules (checked in order):
-            #   1. simready_content  → sim-ready staging S3 URL
-            #   2. Pow in path       → pow-assets alias (custom pow content)
-            #   3. everything else   → NVIDIA production S3 URL
-            if "simready_content" in asset_subpath:
-                replacement = f"@{_SIM_READY_PREFIXES[1]}/{asset_subpath}@"
-                message = (
-                    f"Relative path to sim-ready asset — use sim-ready staging S3 URL: "
-                    f"{original} → {replacement}"
-                )
-            elif "Pow" in asset_subpath:
-                replacement = f"@pow-assets/{asset_subpath}@"
-                message = (
-                    f"Relative path to pow asset — use pow-assets alias: "
-                    f"{original} → {replacement}"
-                )
-            else:
-                replacement = f"@{_NVIDIA_PRODUCTION_S3}/{asset_subpath}@"
-                message = (
-                    f"Relative path to NVIDIA asset — use production S3 URL: "
-                    f"{original} → {replacement}"
-                )
+    # ROS workspace relative rule: @../../../../simros_ws/...@ → @user-home/simros_ws/...@
+    ros_ws_rel_re: re.Pattern | None = None
+    ros_ws_home_relative: str | None = None
+    try:
+        config = PowConfig()
+        raw_ros_ws: str = config.get("isaacsim_ros_ws", "~/IsaacSim-ros_workspaces")
+        if raw_ros_ws.startswith("~/"):
+            ros_ws_home_relative = raw_ros_ws[2:]
+        elif raw_ros_ws.startswith("~"):
+            ros_ws_home_relative = raw_ros_ws[1:]
 
-            issues.append(
-                LintIssue(
-                    file=file_path,
-                    line=line_num,
-                    original=original,
-                    replacement=replacement,
-                    message=message,
-                )
+        if ros_ws_home_relative:
+            escaped_name = re.escape(ros_ws_home_relative)
+            ros_ws_rel_re = re.compile(
+                r"@(?:\.\./)+(" + escaped_name + r"/[^@]*)@"
             )
+    except Exception:
+        pass
+
+    # ── Build lint rules ───────────────────────────────────────────────────
+    # Each rule is a (compiled_regex, handler) pair.  The handler receives
+    # (match, file_path, line_num) and returns a (replacement, message) tuple.
+    rules: list[tuple[re.Pattern, callable]] = []
+
+    # Rule 1: relative .pow/assets paths
+    def _handle_pow_assets(m, _fp, _ln):
+        asset_subpath = m.group(1)
+        original = m.group(0)
+        # Routing rules (checked in order):
+        #   1. simready_content  → sim-ready staging S3 URL
+        #   2. Pow in path       → pow-assets alias (custom pow content)
+        #   3. everything else   → NVIDIA production S3 URL
+        if "simready_content" in asset_subpath:
+            replacement = f"@{_SIM_READY_PREFIXES[1]}/{asset_subpath}@"
+            message = (
+                f"Relative path to sim-ready asset — use sim-ready staging S3 URL: "
+                f"{original} → {replacement}"
+            )
+        elif "Pow" in asset_subpath:
+            replacement = f"@pow-assets/{asset_subpath}@"
+            message = (
+                f"Relative path to pow asset — use pow-assets alias: "
+                f"{original} → {replacement}"
+            )
+        else:
+            replacement = f"@{_NVIDIA_PRODUCTION_S3}/{asset_subpath}@"
+            message = (
+                f"Relative path to NVIDIA asset — use production S3 URL: "
+                f"{original} → {replacement}"
+            )
+        return replacement, message
+
+    rules.append((_RELATIVE_POW_ASSETS_RE, _handle_pow_assets))
+
+    # Rule 2: absolute home-directory paths (general)
+    #   @/home/user/anything/...@ → @user-home/anything/...@
+    def _handle_home_abs(m, _fp, _ln):
+        rest = m.group(1)
+        original = m.group(0)
+        replacement = f"@user-home/{rest}@"
+        message = (
+            f"Absolute home path — use user-home alias: "
+            f"{original} → {replacement}"
+        )
+        return replacement, message
+
+    rules.append((home_abs_re, _handle_home_abs))
+
+    # Rule 3: relative ROS workspace paths
+    #   @../../../../simros_ws/...@ → @user-home/simros_ws/...@
+    if ros_ws_rel_re:
+        def _handle_ros_rel(m, _fp, _ln):
+            ws_and_rest = m.group(1)
+            original = m.group(0)
+            replacement = f"@user-home/{ws_and_rest}@"
+            message = (
+                f"Relative ROS workspace path — use user-home alias: "
+                f"{original} → {replacement}"
+            )
+            return replacement, message
+
+        rules.append((ros_ws_rel_re, _handle_ros_rel))
+
+    # ── Scan lines ────────────────────────────────────────────────────────
+    for line_num, line in enumerate(text.splitlines(), start=1):
+        for pattern, handler in rules:
+            for match in pattern.finditer(line):
+                replacement, message = handler(match, file_path, line_num)
+                issues.append(
+                    LintIssue(
+                        file=file_path,
+                        line=line_num,
+                        original=match.group(0),
+                        replacement=replacement,
+                        message=message,
+                    )
+                )
 
     return issues
 
