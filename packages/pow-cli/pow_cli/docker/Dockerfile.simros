@@ -120,7 +120,7 @@ if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
     getent group $HOST_GID >/dev/null || groupadd -f -g $HOST_GID hostgroup
     
     if ! getent passwd $HOST_UID >/dev/null; then
-        useradd -m -u $HOST_UID -g $HOST_GID -G sudo -s /bin/bash hostuser
+        useradd -M -u $HOST_UID -g $HOST_GID -G sudo -d /home/hostuser -s /bin/bash hostuser
         echo "hostuser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/hostuser
         chmod 0440 /etc/sudoers.d/hostuser
     fi
