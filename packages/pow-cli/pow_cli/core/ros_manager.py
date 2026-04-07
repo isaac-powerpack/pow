@@ -300,7 +300,7 @@ class RosManager:
     ) -> None:
         """Attach to an already-running container via ``docker exec``."""
         exec_cmd: list[str] = ["docker", "exec", "-it", container_name]
-        exec_cmd.extend(extra_args or ["/bin/bash"])
+        exec_cmd.extend(["/ros_config/entrypoint.sh"] + (extra_args or ["/bin/bash"]))
 
         console.print(f"[dim]Starting container from image:[/dim] [cyan]{docker_image}[/cyan]")
         console.print(f"[green]Container '{container_name}' is already running. Attaching...[/green]")
