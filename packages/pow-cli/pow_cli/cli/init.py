@@ -232,6 +232,7 @@ def _step6_ros_integration(
     initializer: Initializer,
     global_dir_name: str,
     forced_value: bool | None = None,
+    forced_ws: str | None = None,
 ) -> tuple[bool, str]:
     """Prompt for ROS integration and set it up.
 
@@ -254,11 +255,15 @@ def _step6_ros_integration(
         console.print("   [yellow]⊖[/yellow] Skipping ROS integration.")
         return False, default_ws
 
-    # Ask for the clone path (tilde-relative)
-    ws_path = Prompt.ask(
-        "   Path to clone IsaacSim-ros_workspaces",
-        default=default_ws,
-    )
+    # Use existing workspace path from config, or ask the user
+    if forced_ws is not None:
+        ws_path = forced_ws
+        console.print(f"   Using existing workspace path from pow.toml: [bold green]{ws_path}[/bold green]")
+    else:
+        ws_path = Prompt.ask(
+            "   Path to clone IsaacSim-ros_workspaces",
+            default=default_ws,
+        )
     # Normalise: keep tilde-relative for storage, but resolve for display
     if ws_path.startswith("~"):
         display_path = ws_path
@@ -452,14 +457,16 @@ def init_cmd():
     
     # Use existing ROS setting if not overriding pow.toml
     ros_forced = None
+    ros_ws_forced = None
     if not override_pow_toml:
         try:
             ros_forced = initializer.config.get("enable_ros", False)
+            ros_ws_forced = initializer.config.get("isaacsim_ros_ws", None)
         except Exception:
             pass
 
     ros_enabled, isaacsim_ros_ws = _step6_ros_integration(
-        initializer, global_dir_name, forced_value=ros_forced,
+        initializer, global_dir_name, forced_value=ros_forced, forced_ws=ros_ws_forced,
     )
     _step7_project_structure(initializer)
     _step8_project_link(initializer)
