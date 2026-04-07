@@ -10,8 +10,9 @@ from ..core.ros_manager import RosManager
     name="ros",
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
+@click.option("--verbose", "-v", is_flag=True, default=False, help="Show detailed feedback during container launch.")
 @click.pass_context
-def ros_cmd(ctx: click.Context):
+def ros_cmd(ctx: click.Context, verbose: bool):
     """Launch the pow_simros Docker container for ROS development.
 
     \b
@@ -27,7 +28,7 @@ def ros_cmd(ctx: click.Context):
     """
     extra_args = ctx.args or None
     try:
-        RosManager.run_simros_container(extra_args=extra_args)
+        RosManager.run_simros_container(extra_args=extra_args, verbose=verbose)
     except click.ClickException:
         raise
     except Exception as e:

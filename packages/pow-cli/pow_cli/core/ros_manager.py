@@ -240,12 +240,8 @@ class RosManager:
     # ── Container launching (from Runner) ────────────────────────────────────
 
     @staticmethod
-    def run_simros_container(extra_args: list[str] | None = None) -> None:
-        """Launch the pow_simros Docker container.
-
-        Reads ``enable_ros`` and ``ros_distro`` from pow.toml.
-        If ROS is disabled the user is told how to enable it.
-        """
+    def _load_and_validate_config() -> tuple[PowConfig, str]:
+        """Load config and return (config, docker_image) or raise."""
         config = PowConfig()
         if config.project_root is None:
             raise click.ClickException("Not initialized. Run `pow init` first.")
@@ -257,10 +253,8 @@ class RosManager:
                 "Set 'enable_ros = true' under [sim] and re-run 'pow init' to enable it."
             )
 
-        ros_distro = config.ros_distro
-        docker_image = f"pow_simros_{ros_distro}"
+        docker_image = f"pow_simros_{config.ros_distro}"
 
-        # Verify image exists
         image_check = subprocess.run(
             ["docker", "image", "inspect", f"{docker_image}:latest"],
             capture_output=True,
@@ -271,45 +265,66 @@ class RosManager:
                 "Run 'pow init' first to build the image."
             )
 
-        # Run xhost to allow x11 access
+        return config, docker_image
+
+    @staticmethod
+    def _unlock_x11(verbose: bool = False) -> None:
+        """Allow X11 access via xhost."""
         try:
             subprocess.run(["xhost", "+"], check=True, capture_output=True)
-            console.print("[green]X11 access control unlock (xhost +)[/green]")
+            if verbose:
+                console.print("[green]X11 access control unlock (xhost +)[/green]")
         except FileNotFoundError:
-            console.print("[yellow]Warning: xhost command not found. GUI might not work.[/yellow]")
+            if verbose:
+                console.print("[yellow]Warning: xhost command not found. GUI might not work.[/yellow]")
         except subprocess.CalledProcessError:
-            console.print("[red]Error: Failed to set xhost permissions.[/red]")
+            if verbose:
+                console.print("[red]Error: Failed to set xhost permissions.[/red]")
 
-        # Check if the container is already running
-        container_name = "pow_simros"
-        running_check = subprocess.run(
+    @staticmethod
+    def _is_container_running(container_name: str) -> bool:
+        """Return True if the named container is currently running."""
+        result = subprocess.run(
             ["docker", "container", "inspect", "-f", "{{.State.Running}}", container_name],
             capture_output=True,
             text=True,
         )
-        container_running = running_check.returncode == 0 and running_check.stdout.strip() == "true"
+        return result.returncode == 0 and result.stdout.strip() == "true"
 
-        if container_running:
-            # Attach to the existing container
-            console.print(f"[green]Container '{container_name}' is already running. Attaching...[/green]")
-            exec_cmd: list[str] = ["docker", "exec", "-it", container_name]
+    @staticmethod
+    def _attach_to_container(
+        container_name: str,
+        docker_image: str,
+        extra_args: list[str] | None = None,
+        verbose: bool = False,
+    ) -> None:
+        """Attach to an already-running container via ``docker exec``."""
+        exec_cmd: list[str] = ["docker", "exec", "-it", container_name]
+        exec_cmd.extend(extra_args or ["/bin/bash"])
 
-            if extra_args:
-                exec_cmd.extend(extra_args)
-            else:
-                exec_cmd.append("/bin/bash")
-
+        console.print(f"[dim]Starting container from image:[/dim] [cyan]{docker_image}[/cyan]")
+        console.print(f"[green]Container '{container_name}' is already running. Attaching...[/green]")
+        
+        if verbose:
             console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in exec_cmd)}[/blue]")
 
-            try:
-                subprocess.run(exec_cmd, check=True, env=os.environ)
-            except subprocess.CalledProcessError as e:
-                raise click.ClickException(f"Docker exec exited with code {e.returncode}")
-            except KeyboardInterrupt:
+        try:
+            subprocess.run(exec_cmd, check=True, env=os.environ)
+        except subprocess.CalledProcessError as e:
+            raise click.ClickException(f"Docker exec exited with code {e.returncode}")
+        except KeyboardInterrupt:
+            if verbose:
                 console.print("[yellow]Detached from container.[/yellow]")
-            return
 
-        #  Run new docker container
+    @staticmethod
+    def _start_new_container(
+        config: PowConfig,
+        docker_image: str,
+        extra_args: list[str] | None = None,
+        verbose: bool = False,
+    ) -> None:
+        """Create and start a new ``pow_simros`` container."""
+        ros_distro = config.ros_distro
         ros_ws_path = config.ros_ws_path
         distro_ws = ros_ws_path / f"{ros_distro}_ws"
 
@@ -331,21 +346,42 @@ class RosManager:
         if os.path.exists(ros_config_dir):
             cmd.extend(["-v", f"{ros_config_dir}:/home/hostuser/.ros"])
 
-        cmd.extend([
-            "--name", container_name,
-            docker_image,
-        ])
+        cmd.extend(["--name", "pow_simros", docker_image])
+        cmd.extend(extra_args or ["/bin/bash"])
 
-        if extra_args:
-            cmd.extend(extra_args)
-        else:
-            cmd.append("/bin/bash")
-
-        console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in cmd)}[/blue]")
+        console.print(f"[dim]Starting container from image:[/dim] [cyan]{docker_image}[/cyan]")
+        if verbose:
+            console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in cmd)}[/blue]")
 
         try:
             subprocess.run(cmd, check=True, env=os.environ)
         except subprocess.CalledProcessError as e:
             raise click.ClickException(f"Docker container exited with code {e.returncode}")
         except KeyboardInterrupt:
-            console.print("[yellow]Container stopped by user.[/yellow]")
+            if verbose:
+                console.print("[yellow]Container stopped by user.[/yellow]")
+
+    @staticmethod
+    def run_simros_container(
+        extra_args: list[str] | None = None,
+        verbose: bool = False,
+    ) -> None:
+        """Launch the pow_simros Docker container.
+
+        Reads ``enable_ros`` and ``ros_distro`` from pow.toml.
+        If ROS is disabled the user is told how to enable it.
+
+        Args:
+            extra_args: Additional arguments forwarded to the container command.
+            verbose: When True, print status feedback to the console.
+        """
+        config, docker_image = RosManager._load_and_validate_config()
+
+        RosManager._unlock_x11(verbose=verbose)
+
+        container_name = "pow_simros"
+
+        if RosManager._is_container_running(container_name):
+            RosManager._attach_to_container(container_name, docker_image, extra_args, verbose=verbose)
+        else:
+            RosManager._start_new_container(config, docker_image, extra_args, verbose=verbose)
