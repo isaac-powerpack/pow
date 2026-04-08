@@ -3,7 +3,7 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from ..common.utils import console
+from ..common.utils import console, get_terminal_width
 from ..core.asset_manager import AssetManager, AssetError
 
 
@@ -19,7 +19,6 @@ def _error_panel(message: str, title: str = "Asset Error") -> Panel:
         title=f"[bold red]{title}[/bold red]",
         border_style="red",
     )
-
 
 def _handle_error(error: Exception) -> None:
     """Print an error panel and exit."""
@@ -317,7 +316,7 @@ def list_cmd():
 
         sorted_entries = sorted(entries, key=lambda x: (x.group_name, x.name))
 
-        table = Table(header_style="bold white")
+        table = Table(header_style="bold white", width=get_terminal_width())
         table.add_column("Group", style="bold blue")
         table.add_column("Name", style="cyan")
         table.add_column("Size", justify="right", style="green")
@@ -333,6 +332,71 @@ def list_cmd():
 
         console.print(table)
         console.print()
+
+    except Exception as e:
+        _handle_error(e)
+
+
+# ── pow asset add ─────────────────────────────────────────────────────────────
+
+
+@asset_group.command(name="add")
+@click.argument("target")
+@click.option("-n", "--name", "is_name", is_flag=True, help="Install asset by name.")
+@click.option("-g", "--group", "is_group", is_flag=True, help="Install asset by group (default).")
+def add_cmd(target: str, is_name: bool, is_group: bool):
+    """Install assets by name or group."""
+    manager = AssetManager()
+    console.print()
+    try:
+        # Default to group if neither is specified
+        if not is_name and not is_group:
+            is_group = True
+            
+        data = manager.get_asset_list_data()
+        valid_groups = {e.group_name for e in data.entries}
+        valid_names = {e.name for e in data.entries}
+        term_width = get_terminal_width()
+
+        if is_group:
+            if target not in valid_groups:
+                if target in valid_names:
+                    console.print(
+                        Panel(
+                            f"[bold red]✘[/bold red]  Group '{target}' not found.\n\n"
+                            f"[dim]Did you mean to install by name? Try using the [bold]-n[/bold] flag:[/dim]\n"
+                            f"  pow asset add -n {target}",
+                            title="[bold red]Asset Error[/bold red]",
+                            border_style="red",
+                            width=term_width
+                        )
+                    )
+                else:
+                    console.print(
+                        Panel(
+                            f"[bold red]✘[/bold red]  Group '{target}' not found in registry.",
+                            title="[bold red]Asset Error[/bold red]",
+                            border_style="red",
+                            width=term_width
+                        )
+                    )
+                raise SystemExit(1)
+                
+            console.print(f"[bold green]✔[/bold green]  Would install group: [cyan]{target}[/cyan]")
+
+        elif is_name:
+            if target not in valid_names:
+                console.print(
+                    Panel(
+                        f"[bold red]✘[/bold red]  Asset name '{target}' not found in registry.",
+                        title="[bold red]Asset Error[/bold red]",
+                        border_style="red",
+                        width=term_width
+                    )
+                )
+                raise SystemExit(1)
+                
+            console.print(f"[bold green]✔[/bold green]  Would install asset: [cyan]{target}[/cyan]")
 
     except Exception as e:
         _handle_error(e)
