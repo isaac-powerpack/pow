@@ -18,6 +18,7 @@ def _error_panel(message: str, title: str = "Asset Error") -> Panel:
         f"[bold red]✘[/bold red]  {message}",
         title=f"[bold red]{title}[/bold red]",
         border_style="red",
+        width=get_terminal_width(),
     )
 
 def _handle_error(error: Exception) -> None:
@@ -97,6 +98,7 @@ def set_cmd(assets_path: str, alias_support: tuple[str, ...]):
                 details,
                 title="[bold green]✔  Local asset configured[/bold green]",
                 border_style="green",
+                width=get_terminal_width(),
             )
         )
     except (AssetError, Exception) as e:
@@ -114,6 +116,7 @@ def _resolve_alias_apps(alias_support: tuple[str, ...]) -> set[str]:
                 f"Supported values: {', '.join(sorted(_SUPPORTED_ALIAS_APPS))}",
                 title="[bold red]Asset Error[/bold red]",
                 border_style="red",
+                width=get_terminal_width(),
             )
         )
         raise SystemExit(1)
@@ -186,6 +189,7 @@ def unset_cmd():
                 Text.from_markup("[bold yellow]⚠[/bold yellow]  ") + Text(str(e)),
                 title="[bold yellow]Nothing to unset[/bold yellow]",
                 border_style="yellow",
+                width=get_terminal_width(),
             )
         )
         raise SystemExit(1)
@@ -217,6 +221,7 @@ def _print_unset_results(results: dict[str, str]) -> None:
             grid,
             title="[bold green]Local asset disabled[/bold green]",
             border_style="green",
+            width=get_terminal_width(),
         )
     )
 
@@ -249,6 +254,7 @@ def _print_asset_status_panel(data) -> None:
                 title="[dim]Status[/dim]",
                 border_style="dim",
                 padding=(1, 2),
+                width=get_terminal_width(),
             )
         )
         console.print()
@@ -285,6 +291,7 @@ def _print_asset_status_panel(data) -> None:
             title="[bold blue]Local Asset Configuration[/bold blue]",
             border_style="blue" if data.symlink_ok else "red",
             padding=(1, 2),
+            width=get_terminal_width(),
         )
     )
     console.print()
@@ -382,7 +389,7 @@ def add_cmd(target: str, is_name: bool, is_group: bool):
                     )
                 raise SystemExit(1)
                 
-            console.print(f"[bold green]✔[/bold green]  Would install group: [cyan]{target}[/cyan]")
+            manager.install_assets(target, is_group=True)
 
         elif is_name:
             if target not in valid_names:
@@ -396,7 +403,7 @@ def add_cmd(target: str, is_name: bool, is_group: bool):
                 )
                 raise SystemExit(1)
                 
-            console.print(f"[bold green]✔[/bold green]  Would install asset: [cyan]{target}[/cyan]")
+            manager.install_assets(target, is_group=False)
 
     except Exception as e:
         _handle_error(e)

@@ -26,6 +26,8 @@ class AssetListEntry:
     size: str             # human-readable e.g. '2.62 GB'
     status: str = "pending"
     completion_pct: float = 0.0
+    url: str | list[str] = ""
+    asset_type: str = ""
 
 
 @dataclass
@@ -205,6 +207,124 @@ class AssetManager:
             )
 
         return results
+
+    # ── Asset installation ────────────────────────────────────────────────────
+
+    def install_assets(self, target: str, is_group: bool) -> None:
+        import subprocess
+        import shutil
+        from ..common.utils import console
+
+        local_path = self.get_local_asset_path()
+        if not local_path:
+            raise AssetError("Local asset path not configured.\nRun 'pow asset set <path>' first to pick an installation directory.")
+        
+        target_path = Path(local_path).resolve()
+        
+        if not shutil.which("aria2c"):
+            raise AssetError(
+                "aria2c is not installed on your system.\n"
+                "Please install it using:\n  [bold cyan]sudo apt update && sudo apt install aria2c[/bold cyan]"
+            )
+            
+        data = self.get_asset_list_data()
+        if is_group:
+            to_install = [e for e in data.entries if e.group_name == target]
+        else:
+            to_install = [e for e in data.entries if e.name == target]
+            
+        if not to_install:
+            raise AssetError(f"No assets found matching {'group' if is_group else 'name'} '{target}'")
+
+        target_path.mkdir(parents=True, exist_ok=True)
+            
+        for entry in to_install:
+            console.print(f"\n[bold blue]⬇ Installing {entry.title} ([dim]{entry.name}[/dim])...[/bold blue]")
+            
+            urls = entry.url if isinstance(entry.url, list) else [entry.url]
+            downloaded_files = []
+            
+            for url in urls:
+                if not url:
+                    continue
+                filename = url.split("/")[-1]
+                file_path = target_path / filename
+                aria2_file = target_path / f"{filename}.aria2"
+                
+                downloaded_files.append(file_path)
+                
+                if aria2_file.exists():
+                    console.print(f"   [yellow]Incomplete download detected for {filename}. Resuming...[/yellow]")
+                elif file_path.exists():
+                    console.print(f"   [dim]✔ Found complete asset part: {filename}[/dim]")
+                    continue
+                else:
+                    console.print(f"   [cyan]Downloading:[/cyan] {filename}")
+                    
+                try:
+                    subprocess.run(
+                        ["aria2c", url, "-d", str(target_path)],
+                        check=True
+                    )
+                except subprocess.CalledProcessError as e:
+                    raise AssetError(f"Download failed for {url}. Error: {e}")
+            
+            if entry.asset_type == "split_archive":
+                self._extract_split_archive(entry, target_path, downloaded_files)
+            else:
+                self._extract_standalone(entry, target_path, downloaded_files)
+            
+            console.print(f"   [bold green]✔[/bold green] {entry.title} installed successfully!")
+
+    def _extract_standalone(self, entry: AssetListEntry, target_path: Path, files: list[Path]):
+        import subprocess
+        from ..common.utils import console
+        if not files: return
+        file_path = files[0]
+        
+        console.print("   [dim]Extracting archive...[/dim]")
+        try:
+            subprocess.run(["unzip", "-o", "-q", str(file_path), "-d", str(target_path)], check=True)
+            console.print("   [dim]Cleaning up zip files...[/dim]")
+            if file_path.exists():
+                file_path.unlink()
+        except subprocess.CalledProcessError as e:
+            raise AssetError(f"Extraction failed for {file_path}. Error: {e}")
+            
+    def _extract_split_archive(self, entry: AssetListEntry, target_path: Path, files: list[Path]):
+        import subprocess
+        from ..common.utils import console
+        if not files: return
+        
+        merged_zip = target_path / f"isaac-sim-assets-{entry.name}.zip"
+        if merged_zip.exists():
+            merged_zip.unlink()
+            
+        console.print("   [dim]Merging zip parts...[/dim]")
+        total_size = sum(p.stat().st_size for p in files if p.exists())
+        written = 0
+        
+        with open(merged_zip, "wb") as outfile:
+            for part in files:
+                if not part.exists():
+                    raise AssetError(f"Missing downloaded part: {part}")
+                with open(part, "rb") as infile:
+                    while chunk := infile.read(1024 * 1024 * 10):
+                        outfile.write(chunk)
+                        written += len(chunk)
+                        pct = (written / total_size) * 100
+                        console.print(f"\r   [dim]Progress: {pct:.1f}%[/dim]", end="")
+        console.print()
+        
+        console.print("   [dim]Extracting archive...[/dim]")
+        try:
+            subprocess.run(["unzip", "-o", "-q", str(merged_zip), "-d", str(target_path)], check=True)
+            console.print("   [dim]Cleaning up zip files...[/dim]")
+            for part in files:
+                if part.exists(): part.unlink()
+            if merged_zip.exists(): merged_zip.unlink()
+        except subprocess.CalledProcessError as e:
+            raise AssetError(f"Extraction failed for {merged_zip}. Error: {e}")
 
     # ── Kit patching ──────────────────────────────────────────────────────────
 
@@ -460,6 +580,8 @@ class AssetManager:
                                 size=raw.get("size", "—"),
                                 status=status,
                                 completion_pct=completion_pct,
+                                url=raw.get("url", ""),
+                                asset_type=raw.get("type", "standalone"),
                             )
                         )
             except Exception:
