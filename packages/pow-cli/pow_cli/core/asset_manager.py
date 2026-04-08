@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import List
 from .models.pow_config import PowConfig
 from .models.system_config import SystemConfig
-from .models.asset_profile import AssetProfile
 
 
 # ── Data structures ───────────────────────────────────────────────────────────
@@ -167,6 +166,10 @@ class AssetManager:
         self._write_system_toml(abs_path)
         self._register_omniverse_alias(abs_path)
 
+        profile_path = abs_path / "asset-profile.toml"
+        if not profile_path.exists():
+            profile_path.touch()
+
         return str(abs_path)
 
     def unset_local_asset_path(self) -> dict[str, str]:
@@ -210,16 +213,20 @@ class AssetManager:
 
     # ── Asset installation ────────────────────────────────────────────────────
 
-    def install_assets(self, target: str, is_group: bool) -> None:
+    def install_assets(self, target: str, is_group: bool, keep_path: str | None = None) -> None:
         import subprocess
         import shutil
         from ..common.utils import console
 
-        local_path = self.get_local_asset_path()
-        if not local_path:
-            raise AssetError("Local asset path not configured.\nRun 'pow asset set <path>' first to pick an installation directory.")
+        system_config = (
+            SystemConfig.from_file(self.get_system_toml_path())
+            if self.get_system_toml_path().exists()
+            else SystemConfig.default()
+        )
+        if not system_config.asset.use_local_asset:
+            raise AssetError("Local asset usage is disabled or not configured in ~/.pow/system.toml (use_local_asset=false).\nRun 'pow asset set <path>' first to pick an installation directory.")
         
-        target_path = Path(local_path).resolve()
+        target_path = self.get_assets_symlink_path()
         
         if not shutil.which("aria2c"):
             raise AssetError(
@@ -237,11 +244,61 @@ class AssetManager:
             raise AssetError(f"No assets found matching {'group' if is_group else 'name'} '{target}'")
 
         target_path.mkdir(parents=True, exist_ok=True)
+        
+        profile_path = target_path / "asset-profile.toml"
+        if not profile_path.exists():
+            profile_path.touch()
+            
+        try:
+            profile_data = tomlkit.loads(profile_path.read_text())
+        except Exception:
+            profile_data = tomlkit.document()
             
         for entry in to_install:
+            if profile_data.get(entry.name) is True:
+                console.print(f"\n[bold green]✔[/bold green] {entry.title} ([dim]{entry.name}[/dim]) is already installed. Skipping.")
+                continue
+
             console.print(f"\n[bold blue]⬇ Installing {entry.title} ([dim]{entry.name}[/dim])...[/bold blue]")
             
             urls = entry.url if isinstance(entry.url, list) else [entry.url]
+            if not urls or not urls[0]:
+                continue
+                
+            if entry.asset_type == "split_archive":
+                base_name = urls[0].split("/")[-1]
+                merged_filename = base_name.rsplit(".", 1)[0] if "." in base_name else base_name
+            else:
+                merged_filename = urls[0].split("/")[-1]
+                
+            skip_download = False
+            if keep_path:
+                keep_dir = Path(keep_path).resolve()
+                keep_zip = keep_dir / merged_filename
+                if keep_zip.exists():
+                    console.print(f"   [dim]✔ Found existing cache in keep location: {merged_filename}[/dim]")
+                    console.print("   [dim]Copying instead of downloading...[/dim]")
+                    dest_zip = target_path / merged_filename
+                    try:
+                        subprocess.run(["cp", str(keep_zip), str(dest_zip)], check=True)
+                        skip_download = True
+                    except subprocess.CalledProcessError as e:
+                        console.print(f"   [yellow]Failed to copy from keep location: {e}. Falling back to download...[/yellow]")
+                        
+            if skip_download:
+                try:
+                    self._unzip_with_progress(dest_zip, target_path)
+                    console.print("   [dim]Cleaning up copied zip...[/dim]")
+                    if dest_zip.exists():
+                        dest_zip.unlink()
+                except subprocess.CalledProcessError as e:
+                    raise AssetError(f"Extraction failed for {dest_zip}. Error: {e}")
+                    
+                profile_data[entry.name] = True
+                profile_path.write_text(tomlkit.dumps(profile_data))
+                console.print(f"   [bold green]✔[/bold green] {entry.title} installed successfully!")
+                continue
+
             downloaded_files = []
             
             for url in urls:
@@ -270,59 +327,121 @@ class AssetManager:
                     raise AssetError(f"Download failed for {url}. Error: {e}")
             
             if entry.asset_type == "split_archive":
-                self._extract_split_archive(entry, target_path, downloaded_files)
+                self._extract_split_archive(entry, target_path, downloaded_files, keep_path)
             else:
-                self._extract_standalone(entry, target_path, downloaded_files)
+                self._extract_standalone(entry, target_path, downloaded_files, keep_path)
             
+            profile_data[entry.name] = True
+            profile_path.write_text(tomlkit.dumps(profile_data))
             console.print(f"   [bold green]✔[/bold green] {entry.title} installed successfully!")
 
-    def _extract_standalone(self, entry: AssetListEntry, target_path: Path, files: list[Path]):
+    def _unzip_with_progress(self, zip_path: Path, target_path: Path):
+        import subprocess
+        from ..common.utils import console
+        from rich.progress import BarColumn, Progress, TextColumn
+        
+        info = subprocess.run(["unzip", "-qql", str(zip_path)], capture_output=True, text=True)
+        total_files = len(info.stdout.splitlines()) if info.stdout else 0
+        
+        with Progress(
+            TextColumn("   [dim]Extracting archive...[/dim]"),
+            BarColumn(bar_width=40),
+            TextColumn("[progress.percentage]{task.percentage:>3.1f}%"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Extracting", total=total_files)
+            process = subprocess.Popen(
+                ["unzip", "-o", str(zip_path), "-d", str(target_path)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
+            if process.stdout:
+                for line in process.stdout:
+                    if line.strip().startswith(("inflating:", "creating:", "extracting:", "linking:")):
+                        progress.advance(task)
+            process.wait()
+            if process.returncode != 0:
+                raise subprocess.CalledProcessError(process.returncode, process.args)
+            progress.update(task, completed=total_files)
+
+    def _extract_standalone(self, entry: AssetListEntry, target_path: Path, files: list[Path], keep_path: str | None = None):
         import subprocess
         from ..common.utils import console
         if not files: return
         file_path = files[0]
         
-        console.print("   [dim]Extracting archive...[/dim]")
         try:
-            subprocess.run(["unzip", "-o", "-q", str(file_path), "-d", str(target_path)], check=True)
-            console.print("   [dim]Cleaning up zip files...[/dim]")
-            if file_path.exists():
-                file_path.unlink()
+            self._unzip_with_progress(file_path, target_path)
+            
+            if keep_path:
+                keep_dir = Path(keep_path).resolve()
+                keep_dir.mkdir(parents=True, exist_ok=True)
+                console.print(f"   [dim]Moving zip files to {keep_dir}...[/dim]")
+                if file_path.exists():
+                    subprocess.run(["mv", str(file_path), str(keep_dir)], check=True)
+            else:
+                console.print("   [dim]Cleaning up zip files...[/dim]")
+                if file_path.exists():
+                    file_path.unlink()
         except subprocess.CalledProcessError as e:
             raise AssetError(f"Extraction failed for {file_path}. Error: {e}")
             
-    def _extract_split_archive(self, entry: AssetListEntry, target_path: Path, files: list[Path]):
+    def _extract_split_archive(self, entry: AssetListEntry, target_path: Path, files: list[Path], keep_path: str | None = None):
         import subprocess
         from ..common.utils import console
         if not files: return
         
-        merged_zip = target_path / f"isaac-sim-assets-{entry.name}.zip"
+        base_name = files[0].name
+        merged_filename = base_name.rsplit(".", 1)[0] if "." in base_name else base_name
+        merged_zip = target_path / merged_filename
+        
         if merged_zip.exists():
             merged_zip.unlink()
             
-        console.print("   [dim]Merging zip parts...[/dim]")
+        from rich.progress import BarColumn, Progress, TextColumn
+        
         total_size = sum(p.stat().st_size for p in files if p.exists())
-        written = 0
         
-        with open(merged_zip, "wb") as outfile:
-            for part in files:
-                if not part.exists():
-                    raise AssetError(f"Missing downloaded part: {part}")
-                with open(part, "rb") as infile:
-                    while chunk := infile.read(1024 * 1024 * 10):
-                        outfile.write(chunk)
-                        written += len(chunk)
-                        pct = (written / total_size) * 100
-                        console.print(f"\r   [dim]Progress: {pct:.1f}%[/dim]", end="")
-        console.print()
+        with Progress(
+            TextColumn("   [dim]Merging zip parts...[/dim]"),
+            BarColumn(bar_width=40),
+            TextColumn("[progress.percentage]{task.percentage:>3.1f}%"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Progress:", total=total_size)
+            with open(merged_zip, "wb") as outfile:
+                for part in files:
+                    if not part.exists():
+                        raise AssetError(f"Missing downloaded part: {part}")
+                    with open(part, "rb") as infile:
+                        while chunk := infile.read(1024 * 1024 * 10):
+                            outfile.write(chunk)
+                            progress.update(task, advance=len(chunk))
         
-        console.print("   [dim]Extracting archive...[/dim]")
         try:
-            subprocess.run(["unzip", "-o", "-q", str(merged_zip), "-d", str(target_path)], check=True)
-            console.print("   [dim]Cleaning up zip files...[/dim]")
-            for part in files:
-                if part.exists(): part.unlink()
-            if merged_zip.exists(): merged_zip.unlink()
+            self._unzip_with_progress(merged_zip, target_path)
+            
+            if keep_path:
+                keep_dir = Path(keep_path).resolve()
+                keep_dir.mkdir(parents=True, exist_ok=True)
+                if merged_zip.exists():
+                    console.print(f"   [dim]Moving merged zip to {keep_dir}...[/dim]")
+                    subprocess.run(["mv", str(merged_zip), str(keep_dir)], check=True)
+                    console.print("   [dim]Cleaning up zip parts...[/dim]")
+                    for part in files:
+                        if part.exists():
+                            part.unlink()
+                else:
+                    console.print(f"   [dim]Moving zip parts to {keep_dir}...[/dim]")
+                    for part in files:
+                        if part.exists():
+                            subprocess.run(["mv", str(part), str(keep_dir)], check=True)
+            else:
+                console.print("   [dim]Cleaning up zip files...[/dim]")
+                for part in files:
+                    if part.exists(): part.unlink()
+                if merged_zip.exists(): merged_zip.unlink()
         except subprocess.CalledProcessError as e:
             raise AssetError(f"Extraction failed for {merged_zip}. Error: {e}")
 
@@ -528,18 +647,18 @@ class AssetManager:
     # ── Private: asset data loading ───────────────────────────────────────────
 
     @staticmethod
-    def _load_profile(symlink: Path) -> AssetProfile | None:
+    def _load_profile(symlink: Path) -> dict | None:
         """Load asset-profile.toml from the symlink target, if it exists."""
         profile_path = symlink.resolve() / "asset-profile.toml"
         if not profile_path.exists():
             return None
         try:
-            return AssetProfile.from_file(profile_path)
+            return tomlkit.loads(profile_path.read_text())
         except Exception:
             return None
 
     @staticmethod
-    def _load_registry_entries(profile: AssetProfile | None) -> list[AssetListEntry]:
+    def _load_registry_entries(profile: dict | None) -> list[AssetListEntry]:
         """Parse all configured registry files and merge with profile data."""
         try:
             import tomllib
@@ -567,10 +686,9 @@ class AssetManager:
                         completion_pct = 0.0
 
                         if profile:
-                            asset_entry = profile.get_asset(group_key, name)
-                            if asset_entry:
-                                status = asset_entry.status
-                                completion_pct = asset_entry.completion_pct
+                            if profile.get(name) is True:
+                                status = "downloaded"
+                                completion_pct = 100.0
 
                         entries.append(
                             AssetListEntry(

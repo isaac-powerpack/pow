@@ -323,7 +323,7 @@ def list_cmd():
 
         sorted_entries = sorted(entries, key=lambda x: (x.group_name, x.name))
 
-        table = Table(header_style="bold white", width=get_terminal_width())
+        table = Table(header_style="bold white")
         table.add_column("Group", style="bold blue")
         table.add_column("Name", style="cyan")
         table.add_column("Size", justify="right", style="green")
@@ -351,7 +351,8 @@ def list_cmd():
 @click.argument("target")
 @click.option("-n", "--name", "is_name", is_flag=True, help="Install asset by name.")
 @click.option("-g", "--group", "is_group", is_flag=True, help="Install asset by group (default).")
-def add_cmd(target: str, is_name: bool, is_group: bool):
+@click.option("-k", "--keep", type=str, metavar="PATH", help="Keep downloaded files and move them to this location.")
+def add_cmd(target: str, is_name: bool, is_group: bool, keep: str | None):
     """Install assets by name or group."""
     manager = AssetManager()
     console.print()
@@ -389,7 +390,7 @@ def add_cmd(target: str, is_name: bool, is_group: bool):
                     )
                 raise SystemExit(1)
                 
-            manager.install_assets(target, is_group=True)
+            manager.install_assets(target, is_group=True, keep_path=keep)
 
         elif is_name:
             if target not in valid_names:
@@ -403,7 +404,7 @@ def add_cmd(target: str, is_name: bool, is_group: bool):
                 )
                 raise SystemExit(1)
                 
-            manager.install_assets(target, is_group=False)
+            manager.install_assets(target, is_group=False, keep_path=keep)
 
     except Exception as e:
         _handle_error(e)
