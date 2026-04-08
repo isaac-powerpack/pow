@@ -289,3 +289,50 @@ def _print_asset_status_panel(data) -> None:
         )
     )
     console.print()
+
+
+# ── pow asset list ────────────────────────────────────────────────────────────
+
+
+@asset_group.command(name="list")
+def list_cmd():
+    """List supported assets mapping."""
+    manager = AssetManager()
+    console.print()
+    try:
+        from ..core.asset_manager import REGISTRIES
+        from itertools import groupby
+
+        target_groups = set()
+        for r in REGISTRIES:
+            if r["file"] == "isaacsim_assets_5_1_0.toml":
+                target_groups.update(r["group_keys"])
+
+        data = manager.get_asset_list_data()
+        entries = [e for e in data.entries if e.group_name in target_groups]
+
+        if not entries:
+            console.print("[dim]No assets found.[/dim]")
+            return
+
+        sorted_entries = sorted(entries, key=lambda x: (x.group_name, x.name))
+
+        table = Table(header_style="bold white")
+        table.add_column("Group", style="bold blue")
+        table.add_column("Name", style="cyan")
+        table.add_column("Size", justify="right", style="green")
+
+        current_group = None
+        for entry in sorted_entries:
+            display_group = ""
+            if entry.group_name != current_group:
+                display_group = escape(entry.group_name)
+                current_group = entry.group_name
+                
+            table.add_row(display_group, escape(entry.name), escape(entry.size))
+
+        console.print(table)
+        console.print()
+
+    except Exception as e:
+        _handle_error(e)
