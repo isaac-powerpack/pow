@@ -606,15 +606,27 @@ class AssetManager:
         self._save_omniverse_doc(doc)
 
     def _clear_omniverse_aliases(self) -> bool:
-        """Remove entire [aliases] section from omniverse.toml. Returns True if removed."""
+        """Remove pow-added aliases from omniverse.toml. Returns True if any were removed."""
         if not self.OMNIVERSE_TOML_PATH.exists():
             return False
         doc = self._read_omniverse_doc()
         if "aliases" not in doc:
             return False
-        del doc["aliases"]
-        self._save_omniverse_doc(doc)
-        return True
+
+        aliases_to_remove = [self.POW_ASSETS_ALIAS]
+        aliases_to_remove.extend(self._ISAACSIM_S3_ALIAS_KEYS)
+        aliases_to_remove.extend(self._SIM_READY_S3_ALIAS_KEYS)
+
+        removed_any = False
+        for alias in aliases_to_remove:
+            if alias in doc["aliases"]:
+                del doc["aliases"][alias]
+                removed_any = True
+
+        if removed_any:
+            self._save_omniverse_doc(doc)
+            
+        return removed_any
 
     def _write_s3_aliases(self, keys: tuple[str, ...]) -> None:
         """Write the given S3 URL keys → assets symlink into omniverse.toml [aliases]."""
