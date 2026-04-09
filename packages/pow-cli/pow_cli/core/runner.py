@@ -70,6 +70,7 @@ class Runner:
         config: PowConfig,
         profile_name: str = "default",
         extra_args: list[str] | None = None,
+        open_path: str | None = None,
     ) -> list[str]:
         """Build the Isaac Sim launch command from configuration."""
         isaacsim_version = config.get("version", PowConfig.ISAACSIM_VERSION)
@@ -94,13 +95,22 @@ class Runner:
         for arg in config.get("raw_args", [], profile=profile_name):
             cmd.append(arg)
 
+        project_root = config.project_root or Path.cwd()
+        
+        if not open_path or open_path == ".":
+            resolved_path = project_root
+        else:
+            resolved_path = Path(open_path).expanduser().resolve()
+            
+        cmd.extend(["--exec", f"open_stage.py file://{resolved_path}"])
+
         if extra_args:
             cmd.extend(extra_args)
 
         return cmd
 
     @staticmethod
-    def run_isaacsim(profile: str = "default", extra_args: list[str] | None = None) -> None:
+    def run_isaacsim(profile: str = "default", extra_args: list[str] | None = None, open_path: str | None = None) -> None:
         """Run an Isaac Sim App based on profile."""
         config = PowConfig()
         if config.project_root is None:
@@ -112,7 +122,7 @@ class Runner:
         enable_ros = config.get("enable_ros", False, profile=profile)
         source_env = RosManager.source_isaacsim_ros_workspace(config) if enable_ros else os.environ.copy()
 
-        cmd = Runner.build_launch_command(config, profile, extra_args)
+        cmd = Runner.build_launch_command(config, profile, extra_args, open_path)
 
         if config.get("cpu_performance_mode", False, profile=profile):
             console.print("[yellow]Setting CPU to performance mode (requires sudo)...[/yellow]")
