@@ -95,14 +95,15 @@ class Runner:
         for arg in config.get("raw_args", [], profile=profile_name):
             cmd.append(arg)
 
-        project_root = config.project_root or Path.cwd()
-        
-        if not open_path or open_path == ".":
-            resolved_path = project_root
-        else:
-            resolved_path = Path(open_path).expanduser().resolve()
-            
-        cmd.extend(["--exec", f"open_stage.py file://{resolved_path}"])
+        if open_path is not None:
+            project_root = config.project_root or Path.cwd()
+
+            if open_path == ".":
+                resolved_path = project_root
+            else:
+                resolved_path = Path(open_path).expanduser().resolve()
+
+            cmd.extend(["--exec", f"open_stage.py file://{resolved_path}"])
 
         if extra_args:
             cmd.extend(extra_args)
