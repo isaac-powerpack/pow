@@ -346,6 +346,12 @@ class RosManager:
         if os.path.exists(ros_config_dir):
             cmd.extend(["-v", f"{ros_config_dir}:/home/hostuser/.ros:ro"])
 
+        # Mount project scripts folder into the container
+        if config.project_root:
+            scripts_dir = config.project_root / "scripts"
+            if scripts_dir.exists():
+                cmd.extend(["-v", f"{scripts_dir}:/home/hostuser/scripts"])
+
         cmd.extend(["--name", "pow_simros", docker_image])
         cmd.extend(extra_args or ["/bin/bash"])
 
