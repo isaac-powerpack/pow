@@ -344,7 +344,7 @@ class RosManager:
         ]
 
         if os.path.exists(ros_config_dir):
-            cmd.extend(["-v", f"{ros_config_dir}:/home/hostuser/.ros:ro"])
+            cmd.extend(["-v", f"{ros_config_dir}:/home/hostuser/.ros"])
 
         # Mount project scripts folder into the container
         if config.project_root:
