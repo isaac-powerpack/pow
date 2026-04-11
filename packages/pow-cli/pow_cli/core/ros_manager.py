@@ -344,7 +344,7 @@ class RosManager:
         ]
 
         if os.path.exists(ros_config_dir):
-            cmd.extend(["-v", f"{ros_config_dir}:/home/hostuser/.ros"])
+            cmd.extend(["-v", f"{ros_config_dir}:/home/hostuser/.ros:ro"])
 
         cmd.extend(["--name", "pow_simros", docker_image])
         cmd.extend(extra_args or ["/bin/bash"])

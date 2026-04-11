@@ -124,6 +124,10 @@ if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
         echo "hostuser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/hostuser
         chmod 0440 /etc/sudoers.d/hostuser
     fi
+
+    # Ensure /home/hostuser exists with correct ownership
+    mkdir -p /home/hostuser
+    chown hostuser:hostgroup /home/hostuser
     
     # Set target user and fix HOME variable
     TARGET_USER=$(getent passwd $HOST_UID | cut -d: -f1)
