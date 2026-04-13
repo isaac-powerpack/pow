@@ -72,6 +72,7 @@ XMLEOF
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-colcon-common-extensions \
     python3-rosdep \
+    python3-pip \
     ros-${ROS_DISTRO}-vision-msgs \
     ros-${ROS_DISTRO}-ackermann-msgs \
     sudo \
@@ -86,6 +87,9 @@ RUN echo 'ALL ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/allow-all \
 
 # Make sure rosdep is initialized
 RUN rosdep update || true
+
+# Install python package
+# TODO: Add pip3 install here for python packages
 
 # ── Step 4: Default working directory ────────────────────────────────────────
 WORKDIR /${ROS_DISTRO}_ws
