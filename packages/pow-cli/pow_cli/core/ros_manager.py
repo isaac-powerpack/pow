@@ -182,6 +182,30 @@ class RosManager:
             "path": str(clone_path),
         }
 
+    @staticmethod
+    def _detect_cuda_version() -> str | None:
+        """Detect the host CUDA version from nvidia-smi.
+
+        Returns the version string (e.g. ``"12.8"``) or ``None`` if
+        ``nvidia-smi`` is not available or the version cannot be parsed.
+        """
+        try:
+            result = subprocess.run(
+                ["nvidia-smi"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    if "CUDA Version" in line:
+                        # Line looks like: "| ... CUDA Version: 12.8  |"
+                        parts = line.split("CUDA Version:")
+                        if len(parts) > 1:
+                            return parts[1].strip().rstrip("|").strip()
+        except FileNotFoundError:
+            pass
+        return None
+
     def build_simros_image(self, status_callback=None, ws_path: "Path | None" = None) -> dict:
         """Build pow_simros_<distro> Docker image using Dockerfile.simros.
 
@@ -210,15 +234,26 @@ class RosManager:
         if status_callback:
             status_callback("simros_building")
 
+        # Detect host CUDA version for PyTorch wheel selection
+        cuda_version = self._detect_cuda_version()
+
+        build_cmd = [
+            "docker", "build",
+            "-f", str(dockerfile_path),
+            "-t", docker_image,
+            "--build-arg", f"ROS_DISTRO={ros_distro}",
+            "--build-context", f"ros_ws={distro_ws}",
+        ]
+
+        if cuda_version:
+            build_cmd.extend(["--build-arg", f"CUDA_VERSION={cuda_version}"])
+            if status_callback:
+                status_callback(f"simros_building:Using host CUDA {cuda_version} for PyTorch")
+
+        build_cmd.append(".")
+
         process = subprocess.Popen(
-            [
-                "docker", "build",
-                "-f", str(dockerfile_path),
-                "-t", docker_image,
-                "--build-arg", f"ROS_DISTRO={ros_distro}",
-                "--build-context", f"ros_ws={distro_ws}",
-                ".",
-            ],
+            build_cmd,
             cwd=str(ros_ws),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

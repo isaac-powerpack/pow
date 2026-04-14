@@ -88,8 +88,14 @@ RUN echo 'ALL ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/allow-all \
 # Make sure rosdep is initialized
 RUN rosdep update || true
 
-# Install python package
-# TODO: Add pip3 install here for python packages
+# ── Install PyTorch (CUDA-aware) ─────────────────────────────────────────
+# The host CUDA version is passed in at build time so we pick the matching
+# PyTorch wheel index.  Example: CUDA_VERSION=12.8 → cu128
+ARG CUDA_VERSION=12.1
+RUN CUDA_TAG="cu$(echo ${CUDA_VERSION} | tr -d '.')" && \
+    pip3 install --no-cache-dir \
+        torch torchvision torchaudio \
+        --index-url "https://download.pytorch.org/whl/${CUDA_TAG}"
 
 # ── Step 4: Default working directory ────────────────────────────────────────
 WORKDIR /${ROS_DISTRO}_ws
