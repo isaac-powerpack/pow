@@ -10,8 +10,14 @@ from ..core.runner import Runner
     name="python",
     context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
 )
+@click.option(
+    "-p",
+    "--profile",
+    default="default",
+    help="Profile name from pow.toml to use (default: 'default').",
+)
 @click.pass_context
-def python_cmd(ctx: click.Context):
+def python_cmd(ctx: click.Context, profile: str):
     """Run Isaac Sim's bundled Python interpreter.
 
     \b
@@ -25,7 +31,7 @@ def python_cmd(ctx: click.Context):
     """
     extra_args = ctx.args
     try:
-        Runner.run_python(extra_args=extra_args)
+        Runner.run_python(profile=profile, extra_args=extra_args)
     except click.ClickException:
         raise
     except Exception as e:

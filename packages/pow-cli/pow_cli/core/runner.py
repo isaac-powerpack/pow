@@ -142,7 +142,7 @@ class Runner:
             console.print("[yellow]Isaac Sim launch aborted by user.[/yellow]")
 
     @staticmethod
-    def run_python(extra_args: list[str] | None = None) -> None:
+    def run_python(profile: str = "default", extra_args: list[str] | None = None) -> None:
         """Run the Isaac Sim bundled Python interpreter.
 
         Wraps ``<global_path>/isaacsim/<version>/python.sh``, forwarding
@@ -161,6 +161,16 @@ class Runner:
                 "Run 'pow init' first to install Isaac Sim."
             )
 
+        enable_ros = config.get("enable_ros", False, profile=profile)
+        source_env = RosManager.source_isaacsim_ros_workspace(config) if enable_ros else os.environ.copy()
+
+        if config.get("cpu_performance_mode", False, profile=profile):
+            console.print("[yellow]Setting CPU to performance mode (requires sudo)...[/yellow]")
+            try:
+                subprocess.run(["sudo", "cpupower", "frequency-set", "-g", "performance"], check=True)
+            except subprocess.CalledProcessError as e:
+                console.print(f"[red]Failed to set CPU performance mode: {e}[/red]")
+
         cmd = [str(python_script)]
         if extra_args:
             cmd.extend(extra_args)
@@ -168,7 +178,7 @@ class Runner:
         console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in cmd)}[/blue]")
 
         try:
-            subprocess.run(cmd, check=True, env=os.environ)
+            subprocess.run(cmd, check=True, env=source_env)
         except subprocess.CalledProcessError as e:
             raise click.ClickException(f"python.sh exited with code {e.returncode}")
         except KeyboardInterrupt:
