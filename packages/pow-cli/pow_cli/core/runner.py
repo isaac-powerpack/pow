@@ -83,8 +83,11 @@ class Runner:
         cmd = [str(launch_script)]
 
         ext_folders = config.get("ext_folders", [], profile=profile_name)
+        project_root = config.project_root or Path.cwd()
         for folder in ext_folders:
-            cmd.extend(["--ext-folder", folder])
+            resolved = (project_root / folder).resolve()
+            if resolved.is_dir():
+                cmd.extend(["--ext-folder", folder])
 
         if config.get("headless", False, profile=profile_name):
             cmd.append("--no-window")

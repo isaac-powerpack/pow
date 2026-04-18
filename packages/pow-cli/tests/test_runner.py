@@ -35,6 +35,7 @@ def mock_config(mocker):
 
 def test_build_launch_command_default(mock_config, mocker):
     mocker.patch("pathlib.Path.exists", return_value=True)
+    mocker.patch("pathlib.Path.is_dir", return_value=True)
     
     cmd = Runner.build_launch_command(mock_config, "default", ["--extra"])
     
@@ -50,8 +51,16 @@ def test_build_launch_command_default(mock_config, mocker):
 
 def test_build_launch_command_perf(mock_config, mocker):
     mocker.patch("pathlib.Path.exists", return_value=True)
+    mocker.patch("pathlib.Path.is_dir", return_value=True)
     cmd = Runner.build_launch_command(mock_config, "perf")
     assert "--no-window" in cmd
+
+def test_build_launch_command_skips_nonexisting_ext_folders(mock_config, mocker):
+    mocker.patch("pathlib.Path.exists", return_value=True)
+    mocker.patch("pathlib.Path.is_dir", return_value=False)
+    cmd = Runner.build_launch_command(mock_config, "default")
+    assert "--ext-folder" not in cmd
+    assert "./exts" not in cmd
 
 def test_run_isaacsim_calls_subprocess(mock_config, mocker):
     mocker.patch("pathlib.Path.exists", return_value=True)
