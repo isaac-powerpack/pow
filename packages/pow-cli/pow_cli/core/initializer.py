@@ -290,6 +290,32 @@ class Initializer:
                     flags=re.DOTALL,
                 )
 
+                # Remove duplicate keys: keep first occurrence, strip subsequent ones
+                # (including any trailing comma and optional line comment)
+                for dup_key in ("python.languageServer", "python.jediEnabled"):
+                    # Match the second (and beyond) occurrence of the key line
+                    pattern = (
+                        r'(?<=[}\n,])'           # preceded by a comma/newline (not start)
+                        r'(\s*"' + re.escape(dup_key) + r'"\s*:[^\n]+\n?)'
+                    )
+                    # Replace all but the first occurrence with nothing
+                    first_seen = [False]
+
+                    def _remove_dup(m, _seen=first_seen):
+                        if not _seen[0]:
+                            _seen[0] = True
+                            return m.group(0)   # keep first hit
+                        # Remove the line; also drop a preceding comma if it's trailing
+                        return ""
+
+                    content = re.sub(pattern, _remove_dup, content)
+
+                # Replace deprecated key with its modern equivalent
+                content = content.replace(
+                    '"typescript.tsc.autoDetect"',
+                    '"js/ts.tsc.autoDetect"',
+                )
+
             dest_file.write_text(content)
             results.append({"file": filename, "status": "Copied and patched"})
 
