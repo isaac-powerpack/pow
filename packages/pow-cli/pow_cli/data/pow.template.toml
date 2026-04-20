@@ -1,6 +1,6 @@
 [sim]
 version = "5.1.0"
-ext_folders = ["./extsUser"]
+ext_folders = ["./exts"]
 cpu_performance_mode = false
 headless = false
 enable_ros = false

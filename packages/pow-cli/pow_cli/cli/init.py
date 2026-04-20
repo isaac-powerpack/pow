@@ -355,7 +355,7 @@ def _step6_ros_integration(
 def _step7_project_structure(initializer: Initializer):
     """Create local project folders and .gitignore."""
     console.print("[bold blue][7/10] 🏗️ Project Structure:[/bold blue] Creating local folders...")
-    local_folders = ["extsUser", "scripts", ".modules", ".assets", "standalone", "usda"]
+    local_folders = ["exts", "scripts", ".modules", ".assets", "standalone", "usda"]
 
     with Progress(
         SpinnerColumn(),
