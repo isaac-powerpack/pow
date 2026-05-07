@@ -207,7 +207,7 @@ class RosManager:
         return None
 
     def build_simros_image(self, status_callback=None, ws_path: "Path | None" = None) -> dict:
-        """Build pow_simros_<distro> Docker image using Dockerfile.simros.
+        """Build pow_simros_<distro> Docker image using Dockerfile.simros_<distro>.
 
         Skips the build if the image already exists locally.
 
@@ -219,7 +219,7 @@ class RosManager:
         ros_distro = self.config.ros_distro
         docker_image = f"pow_simros_{ros_distro}"
         distro_ws = ros_ws / f"{ros_distro}_ws"
-        dockerfile_path = Path(__file__).parent.parent / "docker" / "Dockerfile.simros"
+        dockerfile_path = Path(__file__).parent.parent / "docker" / f"Dockerfile.simros_{ros_distro}"
 
         # Check if image already exists
         image_check = subprocess.run(
@@ -243,7 +243,6 @@ class RosManager:
             "docker", "build",
             "-f", str(dockerfile_path),
             "-t", docker_image,
-            "--build-arg", f"ROS_DISTRO={ros_distro}",
             "--build-context", f"ros_ws={distro_ws}",
         ]
 
@@ -391,6 +390,13 @@ class RosManager:
 
         cmd.extend(["--name", "pow_simros", docker_image])
         cmd.extend(extra_args or ["/bin/bash"])
+
+        # Remove any stale stopped/exited container with the same name
+        # to prevent "name already in use" conflicts.
+        subprocess.run(
+            ["docker", "rm", "-f", "pow_simros"],
+            capture_output=True,
+        )
 
         console.print(f"[dim]Starting container from image:[/dim] [cyan]{docker_image}[/cyan]")
         if verbose:
