@@ -235,7 +235,9 @@ class RosManager:
             status_callback("simros_building")
 
         # Detect host CUDA version for PyTorch wheel selection
-        cuda_version = self._detect_cuda_version()
+        # Fix CUDA version to 12.1 for pytorch compatibility both ubuntu 22.04 and 24.04 nvidia drivers
+        cuda_version = "12.1" 
+        console.print(f"[dim]Using  CUDA version:[/dim] [cyan]{cuda_version or 'None'}[/cyan]")
 
         build_cmd = [
             "docker", "build",
