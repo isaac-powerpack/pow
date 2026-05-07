@@ -88,7 +88,7 @@ RUN rosdep update || true
 # PyTorch wheel index.  Example: CUDA_VERSION=12.8 → cu128
 ARG CUDA_VERSION=12.1
 RUN CUDA_TAG="cu$(echo ${CUDA_VERSION} | tr -d '.')" && \
-    pip3 install --no-cache-dir \
+    pip3 install --no-cache-dir --break-system-packages \
     torch torchvision torchaudio \
     --index-url "https://download.pytorch.org/whl/${CUDA_TAG}"
 
@@ -96,7 +96,12 @@ RUN CUDA_TAG="cu$(echo ${CUDA_VERSION} | tr -d '.')" && \
 # ── Step 4: Default working directory ────────────────────────────────────────
 WORKDIR /jazzy_ws
 
-# ── Step 5: Build workspace at image build time ──────────────────────────────
+# ── Step 5: Clone additional ROS packages ────────────────────────────────────
+RUN mkdir -p /jazzy_ws/src && \
+    git clone https://github.com/PickNikRobotics/topic_based_ros2_control.git \
+        /jazzy_ws/src/topic_based_ros2_control
+
+# ── Step 6: Build workspace at image build time ──────────────────────────────
 # Uses a named build context 'ros_ws' pointing to the <distro>_ws folder.
 # Build with:
 #   docker build --build-context ros_ws=~/.pow/sim-ros/IsaacSim-ros_workspaces/jazzy_ws ...
@@ -107,7 +112,7 @@ RUN --mount=type=bind,from=ros_ws,target=/jazzy_ws \
     source /opt/ros/jazzy/setup.sh && \
     cd /jazzy_ws && \
     apt-get update && \
-    rosdep install --from-paths src --ignore-src --rosdistro=jazzy -y \
+    rosdep install --from-paths src --ignore-src --rosdistro=jazzy -y -r \
     "
 
 # ── Entrypoint ───────────────────────────────────────────────────────────────
@@ -133,7 +138,7 @@ if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
 
     # Ensure /home/hostuser exists with correct ownership
     mkdir -p /home/hostuser
-    chown hostuser:hostgroup /home/hostuser
+    chown $HOST_UID:$HOST_GID /home/hostuser
     
     # Set target user and fix HOME variable
     TARGET_USER=$(getent passwd $HOST_UID | cut -d: -f1)
