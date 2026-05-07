@@ -153,10 +153,13 @@ class RosManager:
                 stderr=subprocess.STDOUT,
                 text=True,
             )
+            output_lines: list[str] = []
             for line in process.stdout:
                 stripped = line.strip()
-                if stripped and status_callback:
-                    status_callback(f"building:{stripped}")
+                if stripped:
+                    output_lines.append(stripped)
+                    if status_callback:
+                        status_callback(f"building:{stripped}")
             process.wait()
 
             # Fix build_ros.sh leaving dangling containers from `docker create --rm`
@@ -173,7 +176,11 @@ class RosManager:
                 subprocess.run(["docker", "rm"] + container_ids)
 
             if process.returncode != 0:
-                raise RuntimeError(f"ROS build failed with exit code {process.returncode}")
+                tail = "\n".join(output_lines[-30:])
+                raise RuntimeError(
+                    f"ROS build failed with exit code {process.returncode}\n"
+                    f"--- Last lines of build output ---\n{tail}"
+                )
 
         return {
             "status": "success",
@@ -260,15 +267,20 @@ class RosManager:
             stderr=subprocess.STDOUT,
             text=True,
         )
+        output_lines: list[str] = []
         for line in process.stdout:
             stripped = line.strip()
-            if stripped and status_callback:
-                status_callback(f"simros_building:{stripped}")
+            if stripped:
+                output_lines.append(stripped)
+                if status_callback:
+                    status_callback(f"simros_building:{stripped}")
         process.wait()
 
         if process.returncode != 0:
+            tail = "\n".join(output_lines[-30:])
             raise RuntimeError(
-                f"Docker build for {docker_image} failed with exit code {process.returncode}"
+                f"Docker build for {docker_image} failed with exit code {process.returncode}\n"
+                f"--- Last lines of build output ---\n{tail}"
             )
 
         return {"status": "built", "image": docker_image}

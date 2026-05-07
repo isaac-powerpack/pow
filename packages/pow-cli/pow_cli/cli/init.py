@@ -298,6 +298,8 @@ def _step6_ros_integration(
     # Resolve the tilde path for actual filesystem operations
     resolved_ws = Path(ws_path).expanduser()
 
+    ros_build_failed = False
+
     with console.status("Preparing ROS workspace...") as status:
         try:
             ros_res = ros_mgr.setup_ros_workspace(
@@ -305,8 +307,12 @@ def _step6_ros_integration(
                 ws_path=resolved_ws,
             )
         except Exception as e:
+            ros_build_failed = True
             console.print(f"   [bold red]❌ ROS Setup Error:[/bold red] {e}")
-            return True, display_path  # user chose ROS, even if it failed
+
+    if ros_build_failed:
+        console.print("   [yellow]⊖[/yellow] Skipping remaining steps due to ROS build error.")
+        raise SystemExit(1)
 
     if ros_cloned:
         console.print(f"   [green]✔[/green] Cloned IsaacSim-ros_workspaces to [dim]{display_path}[/dim]")
@@ -341,7 +347,8 @@ def _step6_ros_integration(
             )
         except Exception as e:
             console.print(f"   [bold red]❌ pow_simros Build Error:[/bold red] {e}")
-            return True, display_path
+            console.print("   [yellow]⊖[/yellow] Skipping remaining steps due to build error.")
+            raise SystemExit(1)
 
     simros_label = f"pow_simros_[bold]{ros_res['ros_distro']}[/bold]"
     if simros_already_built:
