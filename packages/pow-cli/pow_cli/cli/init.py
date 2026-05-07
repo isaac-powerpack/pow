@@ -443,7 +443,7 @@ def _step10_finalize(
 
 @click.command(name="init")
 def init_cmd():
-    """Initialize Isaac ROS project (Mockup with Rich)."""
+    """Initialize Isaac Sim project."""
     initializer = Initializer()
     config = initializer.get_config_path()
     global_dir_name = config["global_dir_name"]
