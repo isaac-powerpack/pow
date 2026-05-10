@@ -2,32 +2,32 @@
     <img src="https://raw.githubusercontent.com/bemunin/isaac-powerpack/main/docs/public/logo.svg" width="400"/>
 </p>
 
-Isaac Powerpack or Pow in short is a CLI project management tool to simplify Nvidia Isaac Sim application development. 
+Isaac Powerpack (or Pow) is a project management tool to simplify Nvidia Isaac Sim application development.
 
 Key Features:
-- ⚡ Simplify isaac sim workstation installation, setup and launching.
+- ⚡ CLI to Simplify isaac sim workstation installation, setup and launching.
 - 📁 Provide organized folder structure, ready to get start.
 - 📦 Keep your isaac sim projects isolated from each other.
 - 🛠️ Allow setup different Profile for isaac sim runtime settings. e.g. launching with different extension and perfomance configuration.
 - 🐢 Simple command to build and launch isaac sim ros docker container to work with ROS2
 - 🎨 Local assets management and usda linting tools.
 
-For the full list of commands and options, see the [CLI Reference](docs/cli-reference.md).
+For the full list of ready-to-use commands and options, see the [CLI Reference](docs/cli-reference.md).
 
-
-🚧 This project is in early development. Features and APIs are still evolving and subject to breaking changes.
+> [!IMPORTANT]
+> This project is in early development. Features and APIs are still evolving and subject to breaking changes. Some features may not be fully implemented yet. Please check the [changelog](packages/pow-cli/CHANGELOG.md) for the latest updates.
 
 ## Installation
 
-**💡 Notes**: This tool is currently tested and supported on Ubuntu 22.04 and ROS2 humble.
+Pow CLI required `uv` python package manager and `docker` to run ros container. Follow this installation guide to get them installed.
+- [uv Installation Guide](https://docs.astral.sh/uv/)
+- [Docker Installation Guide](https://docs.docker.com/get-docker/)
 
+Setup your project
 
 ```bash
-# installing uv if you don't have it installed
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
 # create your project folder
-mkdir sim-projects && cd sim-projects
+mkdir sim-project && cd sim-project
 
 # create pyproject.toml and initialize uv
 uv init --bare
@@ -43,8 +43,6 @@ source .venv/bin/activate
 ```
 
 
-
-
 ### Usage
 
 Run Isaac Sim
@@ -58,7 +56,7 @@ pow run
 pow python path/to/python_standalone_app.py
 ```
 
-Run ROS 2
+Run ROS 2 container
 
 ```bash
 # Bash into the docker container, you can run this command multiple time
@@ -75,7 +73,10 @@ pow run -p perf        # Use the "perf" profile
 pow run -p default     # Use the default profile (or just `pow run`)
 ```
 
-Each profile can `extend` another and override specific settings like `cpu_performance_mode`, `headless`, or add extensions with `exts.add`.
+Each profile can extend another and override specific settings like `cpu_performance_mode`, `headless`, or use `add` keyword to extends the list e.g. `exts.add`. 
+
+
+In example below, you can define a "perf" profile that enables CPU performance mode and use `raw_args.add` to extends raw_args. Setting key without `.add` will override the value such as `exts` in this case.
 
 ```toml
 [sim]
@@ -92,8 +93,18 @@ raw_args = ["--/renderer/raytracingMotion/enabled=false"]
 name = "perf"
 extends = "default"
 cpu_performance_mode = true
-# exts.add = ["your.custom.extension"]
+exts = ["your.custom.extension"]
+raw_args.add=[ 
+    # Enable framegen 2x
+    "--/rtx-transient/dlssg/enabled=true",
+    "--/rtx-transient/internal/dlssg/interpolatedFrameCount=1",
+    # Disable rtx features for performance
+    "--/rtx/reflections/enabled=false",
+    "--/rtx/translucency/enabled=false"
+]
 ```
+
+For the full settings reference, profile inheritance, and examples, see the [Configuration Guide](docs/configuration.md).
 
 ### Local Assets
 
@@ -103,15 +114,49 @@ You can mount the asset directory using `pow asset set` command and download pro
 
 For more detail and feature about Local Assets managemet, see `pow asset` command group in [CLI Reference](docs/cli-reference.md).
 
+### Folder Structure
+
+After running `pow init`, your project will have the following structure:
+
+```
+sim-project/
+├── .vscode/              # VSCode configuration (launch.json, settings.json, etc.)
+├── .modules/             # 3rd party module that use in your project e.g. pegasus sim
+├── .assets/              # 3D assets or any assets you use only in your project
+├── exts/                 # Your custom Isaac Sim extensions
+├── scripts/              # Isaacsim Helper scripts to execute via vscode
+├── standalone/           # Standalone Python applications
+├── usda/                 # USD scene description files
+├── _isaacsim/            # Symlink → ~/.pow/isaacsim/5.1.0 for intellisense and autocomplete
+├── .gitignore            # Pre-configured gitignore for Isaac Sim projects
+├── pow.toml              # Project configuration (sim settings, profiles)
+└── pyproject.toml        # Python project manifest
+```
+
+`pow init` also creates a **global directory** at `~/.pow` (shared across all projects):
+
+```
+~/.pow/
+├── isaacsim/             # Downloaded Isaac Sim installations
+│   └── 5.1.0/            # Isaac Sim 5.1.0 app files
+├── modules/              # Shared modules
+├── assets/               # mounting folder for local assets
+└── system.toml           # Global system configuration
+```
+
+
 ## Support
 
 | Platform              | Version / Notes              |
 | :-------------------- | :--------------------------- |
-| OS                    | Ubuntu 22.04                 |
-| ROS                   | humble                       |
+| OS                    | Ubuntu 22.04 / 24.04         |
+| ROS2                  | Humble / Jazzy               |
 | Isaac Sim             | `5.1.0`                      |
 
-<br>
+> [!NOTE]
+> Pow is mainly developed and tested on Ubuntu 22.04 and ROS2 Humble environment.  
+
+<br>    
 
 ## Contribution
 
