@@ -2,24 +2,25 @@
     <img src="https://raw.githubusercontent.com/bemunin/isaac-powerpack/main/docs/public/logo.svg" width="400"/>
 </p>
 
-Isaac Powerpack (or Pow) is a project management tool to simplify Nvidia Isaac Sim application development.
+Isaac Powerpack (or **Pow**) is a project management tool designed to simplify **NVIDIA Isaac Sim** application development.
 
-Key Features:
-- ⚡ CLI to Simplify isaac sim workstation installation, setup and launching.
-- 📁 Provide organized folder structure, ready to get start.
-- 📦 Keep your isaac sim projects isolated from each other.
-- 🛠️ Allow setup different Profile for isaac sim runtime settings. e.g. launching with different extension and perfomance configuration.
-- 🐢 Simple command to build and launch isaac sim ros docker container to work with ROS2
-- 🎨 Local assets management and usda linting tools.
+Key features:
+
+* ⚡ CLI to simplify Isaac Sim workstation installation, setup, and launching.
+* 📁 Provides an organized folder structure, ready to get started.
+* 📦 Keeps your Isaac Sim projects isolated from each other.
+* 🛠️ Allows for configuring different Isaac Sim runtime settings via profiles.
+* 🐢 Simple commands to build and launch Isaac Sim ROS Docker containers for use with ROS 2.
+* 🎨 Local asset management and USDA linting tools.
 
 For the full list of ready-to-use commands and options, see the [CLI Reference](docs/cli-reference.md).
 
 > [!IMPORTANT]
-> This project is in early development. Features and APIs are still evolving and subject to breaking changes. Some features may not be fully implemented yet. Please check the [changelog](packages/pow-cli/CHANGELOG.md) for the latest updates.
+> This project is in early development. Features and APIs are still evolving and **are** subject to breaking changes. Please check the [Changelog](packages/pow-cli/CHANGELOG.md) for the latest updates.
 
 ## Installation
 
-Pow CLI required `uv` python package manager and `docker` to run ros container. Follow this installation guide to get them installed.
+Pow CLI requires uv and Docker (for ROS 2 container support). Ensure both are installed before proceeding:
 - [uv Installation Guide](https://docs.astral.sh/uv/)
 - [Docker Installation Guide](https://docs.docker.com/get-docker/)
 
@@ -35,7 +36,7 @@ uv init --bare
 # add pow cli package
 uv add "pow-cli==0.1.0"
 
-# Initialize project and install isaac sim, setup ros, create config
+# Initialize project, install isaac sim, setup ROS, create config file
 uv run pow init
 
 # source your workspace
@@ -43,7 +44,7 @@ source .venv/bin/activate
 ```
 
 
-### Usage
+### Usages
 
 Run Isaac Sim
 
@@ -108,13 +109,13 @@ For the full settings reference, profile inheritance, and examples, see the [Con
 
 ### Local Assets
 
-The concept of Local assets is to download predefined assets in advanced from Nvidia Omniverse in your local computer in order to build scene in your Isaac Sim application faster (reduce download bottleneck during creating the scene). 
+The concept of Local assets is to download predefined assets in advanced from Nvidia Omniverse to your local machine to accelerate scene building and eliminate download bottleneck during scene creation. 
 
-You can mount the asset directory using `pow asset set` command and download provided collection using `pow asset add`. Currently we only support download isaac sim assets only.
+You can mount the assets directory using `pow asset set` command to `~/.pow/assets` and download provided collection using `pow asset add`. Currently, only official Isaac Sim assets are available to download with add command.
 
-For more detail and feature about Local Assets managemet, see `pow asset` command group in [CLI Reference](docs/cli-reference.md).
+For more detail and feature about Local Assets command line, see `pow asset` command group in [CLI Reference](docs/cli-reference.md).
 
-### Folder Structure
+### Folder Structure    
 
 After running `pow init`, your project will have the following structure:
 
