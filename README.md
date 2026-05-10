@@ -18,7 +18,7 @@ Key features:
 For the full list of ready-to-use commands and options, see the [CLI Reference](docs/cli-reference.md).
 
 > [!IMPORTANT]
-> This project is in early development. Features and APIs are still evolving and **are** subject to breaking changes. Please check the [Changelog](packages/pow-cli/CHANGELOG.md) for the latest updates.
+> This project is in early development. Features and APIs are still evolving and are subject to breaking changes. Please check the [Changelog](packages/pow-cli/CHANGELOG.md) for the latest updates.
 
 ## Installation
 
