@@ -211,6 +211,6 @@ pow lint fix -s
 
 | Option          | Description                          |
 | :-------------- | :----------------------------------- |
-| `-s`, `--short` | Show only file path and line number  |
+| `-s`, `--short` | Show feedback with file path and line number only |
 
-For a detailed explanation of each rule, patterns, and before/after examples, see the [Lint Rules Guide](lint-rules.md).
+For a detailed explanation of each rule, patterns, and examples, see the [Lint Rules Guide](lint-rules.md).
