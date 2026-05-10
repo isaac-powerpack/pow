@@ -2,7 +2,9 @@
     <img src="https://raw.githubusercontent.com/bemunin/isaac-powerpack/main/docs/public/logo.svg" width="400"/>
 </p>
 
-Isaac Powerpack (or **Pow**) is a project management tool designed to simplify **NVIDIA Isaac Sim** application development.
+> Simplify your NVIDIA Isaac Sim development with *Isaac Powerpack*
+
+**Isaac Powerpack** (or **Pow** for short) is a project management tool that aims to reduce friction of **NVIDIA Isaac Sim** application development.
 
 Key features:
 
