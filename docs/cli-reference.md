@@ -2,16 +2,20 @@
 
 ## `pow init`
 
-Initialize an Isaac Sim project. This interactive command walks through a 10-step setup:
+Initialize an Isaac Sim project. All projects are isolated from each other. Only file and isaacsim app in global `~/.pow` are shared between projects.
+
+<img src="./public/pow_architecture_outline.jpeg" alt="pow_architecture" width="600" />
+
+This interactive command walks through a 10-step setup:
 
 1. Validates the project directory (requires `pyproject.toml`)
 2. Checks for existing `pow.toml` configuration
-3. Creates the `.pow` global folder
-4. Downloads and installs Isaac Sim 5.1.0
+3. Creates the `.pow` global folder if it's not exists
+4. Downloads and installs your specified Isaac Sim version in `.pow/isaacsim/<version>` folder
 5. Applies post-install optimizations
 6. Sets up ROS integration (optional — builds Docker images)
 7. Creates project structure (`exts/`, `scripts/`, `.modules/`, `.assets/`, `standalone/`, `usda/`)
-8. Symlinks the managed Isaac Sim installation into the project
+8. Symlinks the managed Isaac Sim installation into the project for intellisense/code completion
 9. Configures VS Code settings
 10. Generates `pow.toml` configuration
 
@@ -23,7 +27,7 @@ pow init
 
 ## `pow run`
 
-Run Isaac Sim with the configured profile and extensions from `pow.toml`.
+Run Isaac Sim with the configured profile and extensions from `pow.toml`. See more detail for `pow.toml` configuration in [Configuration Guide](docs/configuration.md).
 
 ```bash
 # Run with default profile
@@ -44,11 +48,14 @@ pow run -- --/renderer/enabled=gpu
 | `-p`, `--profile`   | Profile name from `pow.toml` (default: `default`)  |
 | `-o`, `--open`      | Path to a USD file to open on launch               |
 
+> [!WARNING]
+> `-o` or `--open` is still in experiment. We have found bug that cause **missing assets** issue when opening scenes using this flag. Suggestion to avoid this problem is by opening the scene via GUI or load scene with `isaacsim api` in your custom extension.
+
 ---
 
 ## `pow python`
 
-Run Isaac Sim's bundled Python interpreter (`.pow/isaacsim/<version>/python.sh`), forwarding all arguments. This command is used for running standalone isaac sim application.  
+Run Isaac Sim's bundled Python interpreter (`.pow/isaacsim/<version>/python.sh`)for running standalone isaac sim application.
 
 ```bash
 # Run a standalone script
@@ -69,7 +76,7 @@ pow python -p perf my_script.py
 
 ## `pow ros`
 
-Launch the `pow_simros` Docker container for ROS development. Requires ROS integration to be enabled during `pow init`.
+Launch the `pow_simros` Docker container for ROS development. Requires ROS integration to be enabled during `pow init`. See more about ROS 2 enable flag in [Configuration Guide](docs/configuration.md).
 
 ```bash
 # Start an interactive ROS bash session
@@ -100,7 +107,7 @@ pow check
 
 ## `pow asset`
 
-Manage Isaac Sim local assets. Subcommands:
+Group of commands to manage Isaac Sim local assets.
 
 ### `pow asset set <PATH>`
 
@@ -121,6 +128,10 @@ pow asset set /path/to/assets -a none
 | Option                    | Description                                                |
 | :------------------------ | :--------------------------------------------------------- |
 | `-a`, `--alias-support`   | Alias target: `isaacsim`, `simready`, or `none` (repeatable) |
+
+
+> [!NOTE]
+> Currently, we only support `isaacsim` assets and `none` alias. We will add `simready` assets download support and others in the future.
 
 ### `pow asset unset`
 
@@ -157,15 +168,15 @@ pow asset add local-assets
 # Install by name
 pow asset add -n nova_carter_sensors
 
-# Keep downloaded files
+# Keep downloaded files or use assets to install from this path
 pow asset add local-assets -k /path/to/keep
 ```
 
-| Option          | Description                                   |
-| :-------------- | :-------------------------------------------- |
-| `-n`, `--name`  | Install asset by name                         |
-| `-g`, `--group` | Install asset by group (default behavior)     |
-| `-k`, `--keep`  | Keep downloaded files and move to this path   |
+| Option          | Description                                      |
+| :-------------- | :----------------------------------------------- |
+| `-n`, `--name`  | Install asset by name                            |
+| `-g`, `--group` | Install asset by group (default behavior)          |
+| `-k`, `--keep`  | Keep downloaded files or use assets to install from this path |
 
 ---
 
@@ -201,3 +212,5 @@ pow lint fix -s
 | Option          | Description                          |
 | :-------------- | :----------------------------------- |
 | `-s`, `--short` | Show only file path and line number  |
+
+For a detailed explanation of each rule, patterns, and before/after examples, see the [Lint Rules Guide](lint-rules.md).
