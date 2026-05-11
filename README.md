@@ -12,7 +12,7 @@ Key features:
 * 📁 Provides an organized folder structure, ready to get started.
 * 📦 Keeps your Isaac Sim projects isolated from each other.
 * 🛠️ Allows for configuring different Isaac Sim runtime settings via profiles.
-* 🐢 Simple commands to build and launch Isaac Sim ROS Docker containers for use with ROS 2.
+* 🐢 Simple commands for building and running Isaac Sim ROS 2 Docker containers.
 * 🎨 Local asset management and USDA linting tools.
 
 For the full list of ready-to-use commands and options, see the [CLI Reference](docs/cli-reference.md).
@@ -37,7 +37,7 @@ mkdir sim-project && cd sim-project
 uv init --bare
 
 # add pow cli package
-uv add "pow-cli==0.1.0a4"
+uv add "pow-cli==0.1.0rc1"
 
 # Initialize project, install isaac sim, setup ROS, create config file
 uv run pow init
