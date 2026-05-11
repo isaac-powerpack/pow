@@ -1,9 +1,12 @@
-# 👋 Isaac Powerpack Commandline
+**Isaac Powerpack** (or **Pow** for short) is a project management tool that aims to reduce friction of **NVIDIA Isaac Sim** application development.
 
-This is early preview of the Isaac Powerpack Commandline Interface (CLI) tool, `pow-cli`, designed to to streamline Isaac Sim project setup and management
+Key features:
 
-### Current Features and Roadmap
+* ⚡ CLI to simplify Isaac Sim workstation installation, setup, and launching.
+* 📁 Provides an organized folder structure, ready to get started.
+* 📦 Keeps your Isaac Sim projects isolated from each other.
+* 🛠️ Allows for configuring different Isaac Sim runtime settings via profiles.
+* 🐢 Simple commands to build and launch Isaac Sim ROS Docker containers for use with ROS 2.
+* 🎨 Local asset management and USDA linting tools.
 
-- CLI
-  - [x] Install Isaac Sim local assets (`sim add local-assets`, v5.1.0)
-  - [x] Isaac Sim commands: `sim init`, `sim run` for simplified setup workflows
+For more details, visit the **[GitHub repository](https://github.com/isaac-powerpack/pow)**
