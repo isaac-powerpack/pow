@@ -1,10 +1,10 @@
 # Lint Rules
 
-`pow lint` scans `.usda` files for asset reference paths (written as `@path/to/asset.usd@`) that use machine-specific relative or absolute filesystem paths. These break when the project is moved to another machine or shared with a team. The linter rewrites them to use **Omniverse aliases** or **canonical S3 URLs** for portability.
+`pow lint` scans `.usda` files for asset reference paths (written as `@path/to/asset.usd@`) that use relative or absolute filesystem paths. These break when the project is moved to another machine or shared with a team. The linter rewrites them to use pow's **Omniverse aliases** for portability.
 
-There are currently 3 rules:
+There are currently 3 rules that detect specific patterns of paths and replace with the aliases:
 
-| # | Name | Detects |
+| # | Rule Name | Detects |
 |:--|:-----|:--------|
 | 1 | [Relative `.pow/assets` paths](#rule-1--relative-powassets-paths) | `@../../.pow/assets/...@` |
 | 2 | [Absolute home directory paths](#rule-2--absolute-home-directory-paths) | `@/home/username/...@` |
@@ -54,7 +54,7 @@ The replacement depends on what `<subpath>` contains (checked in order):
 Pattern: @/home/<username>/<rest>@
 ```
 
-These are non-portable because the home path differs on every machine. The fix replaces the home prefix with the `user-home` Omniverse alias, which is resolved at runtime per-machine.
+These are non-portable because the home path differs on every machine. The fix replaces the home prefix with the `user-home` alias, which is resolved at runtime per-machine.
 
 **Example:**
 

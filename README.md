@@ -17,10 +17,11 @@ Key features:
 
 For the full list of ready-to-use commands and options, see the [CLI Reference](docs/cli-reference.md).
 
+## Installation
+
 > [!IMPORTANT]
 > This project is in early development. Features and APIs are still evolving and are subject to breaking changes. Please check the [Changelog](packages/pow-cli/CHANGELOG.md) for the latest updates.
 
-## Installation
 
 Pow CLI requires uv and Docker (for ROS 2 container support). Ensure both are installed before proceeding:
 - [uv Installation Guide](https://docs.astral.sh/uv/)
@@ -109,7 +110,7 @@ raw_args.add=[
 
 For the full settings reference, profile inheritance, and examples, see the [Configuration Guide](docs/configuration.md).
 
-### Local Assets
+## Local Assets
 
 The concept of Local assets is to download predefined assets in advanced from Nvidia Omniverse to your local machine to accelerate scene building and eliminate download bottleneck during scene creation. 
 
@@ -117,7 +118,7 @@ You can mount the assets directory using `pow asset set` command to `~/.pow/asse
 
 For more detail and feature about Local Assets command line, see `pow asset` command group in [CLI Reference](docs/cli-reference.md).
 
-### Folder Structure    
+## Folder Structure    
 
 After running `pow init`, your project will have the following structure:
 
