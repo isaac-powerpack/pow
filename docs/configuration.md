@@ -144,7 +144,7 @@ cpu_performance_mode = true
 exts = ["your.custom.extension"]
 # Append additional raw_args
 raw_args.add = [
-    # Enable framegen 2x
+    # Enable framegen 2x (support only for RTX 50 series)
     "--/rtx-transient/dlssg/enabled=true",
     "--/rtx-transient/internal/dlssg/interpolatedFrameCount=1",
     # Disable rtx features for performance
