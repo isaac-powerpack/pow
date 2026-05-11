@@ -2,6 +2,55 @@
 
 All notable changes to the `pow-cli` package will be documented in this file.
 
+## [0.1.0-rc.1] - 2026-05-11
+
+### Added
+
+- **Asset Management (`pow asset`)**
+  - `pow asset list` — list available Isaac Sim & Omniverse assets
+  - `pow asset add` — download and register assets into the local asset folder (only support `isaacsim_5_1_0` for now)
+  - `pow asset set / unset` — set/unset target local asset folder
+  - `pow asset info` — display current local asset folder information
+- **Linter (`pow lint`)**
+  - New `pow lint` and `pow lint --fix` commands for `.usda` files
+  - Detects absolute/relative local asset paths and rewrites them with correct aliases or asset urls (`user-home`, `pow-assets`)
+  - Rule for validating `simros_ws` relative paths
+- **ROS Integration (`pow ros`)**
+  - `pow ros` command to build, launch, and attach to ROS 2 Docker containers
+  - Verbose mode (`--verbose`) for runtime diagnostics
+  - Separate Dockerfiles for ROS Humble and Jazzy distributions
+  - Project `scripts/` directory mounted into the container
+  - PyTorch with CUDA support available inside the container
+  - `isaacsim_ros_ws` working directory configurable in `pow.toml`
+- **Runner Improvements**
+  - (experimental) `pow run --open <file>` option to open a USD stage on launch 
+  - Non-existent `ext_folders` entries are now silently skipped instead of auto-created
+- **Other**
+  - `pow python` command with `--profile` flag for running standalone app under specified version of Isaac Sim's Python
+  - `user-home` aliases automatically configured during `pow init`
+  - `usda/` folder added to default project structure
+  - `extends` support in `pow.toml` for profile-based configuration
+
+### Fixed
+
+- ROS Jazzy container build failure on Ubuntu 24.04
+- CUDA version pinned to 12.1 for deterministic ROS builds
+- `.ros` / `.ros2` mount and permission issues in the SimROS container
+- SimROS entrypoint no longer warns when host-user directory already exists
+- `pow run` no longer calls `open_stage` when no path is provided
+- `pow asset unset` no longer accidentally removes `user-home` alias
+- Duplicate and deprecated keys in generated `.vscode/settings.json`
+- `pow init` now respects existing `isaacsim_ros_ws` value in existing `pow.toml`
+- `pow ros` correctly attaches to an already-running container
+
+### Changed
+
+- Rewrite and refactor all core functionality of pow-cli
+- Move commands under group `pow sim` to root `pow` command instead
+- Remove pow-foxglove from repository 
+- ROS-related logic extracted into dedicated `ros_manager.py` module
+- CLI and core layers refactored for clearer separation of concerns
+
 ## [0.1.0a3] - 2026-01-27
 
 ### Fixed
