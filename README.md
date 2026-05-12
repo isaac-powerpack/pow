@@ -70,17 +70,16 @@ pow ros
 
 ## Profiles
 
-After running `pow init`, a `pow.toml` file is generated in your project root. You can define multiple profiles and switch between them:
+After running `pow init`, a `pow.toml` configuration file is generated in your project root. This file controls Isaac Sim runtime settings and supports multiple profiles, letting you switch between them depending on your use case:
 
 ```bash
 pow run -p perf        # Use the "perf" profile
 pow run -p default     # Use the default profile (or just `pow run`)
 ```
 
-Each profile can extend another and override specific settings like `cpu_performance_mode`, `headless`, or use `add` keyword to extends the list e.g. `exts.add`. 
+Each profile can extend another and override specific settings such as `cpu_performance_mode` or `headless`. To extend a list instead of replacing it, use the `.add` suffix (e.g. `exts.add`, `raw_args.add`).
 
-
-In example below, you can define a "perf" profile that enables CPU performance mode and use `raw_args.add` to extends raw_args. Setting key without `.add` will override the value such as `exts` in this case.
+In the example below, the `"perf"` profile extends `"default"`, enables CPU performance mode, and appends to `raw_args` using `raw_args.add`. Note that `exts` (without `.add`) replaces the inherited value entirely.
 
 ```toml
 [sim]
@@ -98,11 +97,11 @@ name = "perf"
 extends = "default"
 cpu_performance_mode = true
 exts = ["your.custom.extension"]
-raw_args.add=[ 
-    # Enable framegen 2x (support only for RTX 50 series)
+raw_args.add = [
+    # Enable frame generation 2x (RTX 50 series only)
     "--/rtx-transient/dlssg/enabled=true",
     "--/rtx-transient/internal/dlssg/interpolatedFrameCount=1",
-    # Disable rtx features for performance
+    # Disable RTX features for better performance
     "--/rtx/reflections/enabled=false",
     "--/rtx/translucency/enabled=false"
 ]
@@ -114,7 +113,7 @@ For the full settings reference, profile inheritance, and examples, see the [Con
 
 The concept of Local assets is to download predefined assets in advanced from Nvidia Omniverse to your local machine to accelerate scene building and eliminate download bottleneck during scene creation. 
 
-You can mount the assets directory using `pow asset set` command to `~/.pow/assets` and download provided collection using `pow asset add`. Currently, only official Isaac Sim assets are available to download with add command.
+You can attach the assets directory using `pow asset set` command to `~/.pow/assets` and download provided collection using `pow asset add`. Currently, only official Isaac Sim assets are available to download with add command.
 
 For more detail and feature about Local Assets command line, see `pow asset` command group in [CLI Reference](docs/cli-reference.md).
 
