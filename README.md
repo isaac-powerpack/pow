@@ -27,13 +27,14 @@ Pow CLI requires uv and Docker (for ROS 2 container support). Ensure both are in
 - [uv Installation Guide](https://docs.astral.sh/uv/)
 - [Docker Installation Guide](https://docs.docker.com/get-docker/)
 
+
 ### User-level install
 
 Install `pow` once for your user and run it from any directory — no project needed:
 
 ```bash
 # install pow cli as a user-level tool
-uv tool install pow-cli==0.2.0
+uv tool install pow-cli==0.3.0
 
 # add uv's tool directory to your PATH (once, then restart your shell)
 uv tool update-shell
@@ -79,7 +80,14 @@ uv init --bare
 # Initialize project, install isaac sim, setup ROS, create config file
 pow init
 
+# Or select the Isaac Sim version without the interactive picker
+pow init --sim-version 6.0.1
 ```
+
+When `pow.toml` already exists, `pow init` can update `version`, `enable_ros`,
+and `isaacsim_ros_ws` while preserving profiles, custom settings, comments, and
+key order. Choosing not to update leaves the file untouched; unless a command
+line option overrides one, its settings are reused during initialization.
 
 ### Usages
 
@@ -94,21 +102,38 @@ pow -v
 Run Isaac Sim
 
 ```bash
-
-# Run Isaac Sim GUI
+# Run the current project's configured Isaac Sim version
 pow run
 
-# or Run standalone app
+# Run Isaac Sim from any directory. This uses [sim] default_version from
+# ~/.pow/system.toml, or the newest installed version when it is unset.
+pow sim
+
+# Check whether the machine meets Isaac Sim's requirements
+pow sim check
+
+# Run a standalone Python application with Isaac Sim's Python
 pow python path/to/python_standalone_app.py
 ```
 
 Run ROS 2 container
 
 ```bash
-# Bash into the docker container, you can run this command multiple time
-# later command will attach to the running container
+# Build the custom ROS image configured by ros_dockerfile in pow.toml
+pow ros build
+
+# Rebuild the custom image without Docker's layer cache
+pow ros build --no-cache
+
+# Open a shell in the ROS container. Later runs attach to the same container.
 pow ros
 ```
+
+`pow ros build` tags the custom image with `ros_docker_image`. If the bundled
+`pow_simros_jazzy` base image is missing, it is built first. When
+`ros_dockerfile` is empty, there is no custom image to build; `pow init` creates
+the bundled base image during ROS setup.
+
 
 ## Profiles
 
@@ -130,6 +155,7 @@ ext_folders = ["./exts"]
 cpu_performance_mode = false
 headless = false
 enable_ros = false
+ros_bridge = "jazzy"
 isaacsim_ros_ws = "~/IsaacSim-ros_workspaces"
 ros_dockerfile = ""
 ros_docker_image = "pow_simros"
@@ -161,6 +187,17 @@ You can attach the assets directory using `pow asset set` command to `~/.pow/ass
 
 For more detail and feature about Local Assets command line, see `pow asset` command group in [CLI Reference](docs/cli-reference.md).
 
+`pow lint` also checks `.usda` asset references. When a project changes Isaac
+Sim versions, it reports and can fix `Assets/Isaac/<major>.<minor>` paths that
+do not match `[sim] version` in `pow.toml`:
+
+```bash
+pow lint ./usda       # report issues
+pow lint fix ./usda   # rewrite supported paths
+```
+
+See the [Lint Rules Guide](docs/lint-rules.md) for all path checks and examples.
+
 ## Folder Structure    
 
 After running `pow init`, your project will have the following structure:
@@ -187,6 +224,15 @@ sim-project/
 ├── modules/              # Shared modules
 ├── assets/               # mounting folder for local assets
 └── system.toml           # Global system configuration ([sim] default_version, [asset])
+```
+
+To choose which installation `pow sim` and `pow sim check` use when `-v` is
+omitted, set the global default in `~/.pow/system.toml`. Leave it empty to use
+the newest installed version:
+
+```toml
+[sim]
+default_version = "6.0.1"
 ```
 
 
