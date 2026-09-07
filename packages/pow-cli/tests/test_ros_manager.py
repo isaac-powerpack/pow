@@ -244,6 +244,7 @@ def test_bridge_env_takes_dir_and_distro_without_config(tmp_path, mocker):
 
 def test_start_new_container_uses_container_name(mocker):
     """_start_new_container names the container after the derived container name."""
+    mocker.patch.dict("os.environ", {}, clear=True)
     cfg = _make_config(
         ros_dockerfile="docker/Dockerfile.simros",
         ros_docker_image="my_robot_sim",

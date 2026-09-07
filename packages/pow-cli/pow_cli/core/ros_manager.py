@@ -8,6 +8,8 @@ Initializer and Runner.
 import os
 import shlex
 import subprocess
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 import click
@@ -362,18 +364,52 @@ class RosManager:
         return config, docker_image
 
     @staticmethod
-    def _unlock_x11(verbose: bool = False) -> None:
-        """Allow X11 access via xhost."""
-        try:
-            subprocess.run(["xhost", "+"], check=True, capture_output=True)
-            if verbose:
-                console.print("[green]X11 access control unlock (xhost +)[/green]")
-        except FileNotFoundError:
-            if verbose:
-                console.print("[yellow]Warning: xhost command not found. GUI might not work.[/yellow]")
-        except subprocess.CalledProcessError:
-            if verbose:
-                console.print("[red]Error: Failed to set xhost permissions.[/red]")
+    @contextmanager
+    def _x11_args():
+        """Share the current display cookie without changing host access control.
+
+        xauth honors the host XAUTHORITY (or ~/.Xauthority). Only the selected
+        display's records are copied, and the private copy is mounted read-only.
+        Docker retains its bind mount if the client detaches before container exit.
+        """
+        display = os.environ.get("DISPLAY")
+        if not display:
+            yield []
+            return
+        with tempfile.TemporaryDirectory(prefix="pow-xauth-") as directory:
+            authority = Path(directory) / ".Xauthority"
+            authority.touch(mode=0o600)
+            try:
+                result = subprocess.run(
+                    ["xauth", "nlist", display], check=True, capture_output=True, text=True,
+                )
+                records = result.stdout.splitlines()
+                if not records or any(len(row) < 4 for row in records):
+                    raise click.ClickException(
+                        "No X11 credentials for DISPLAY. Run from your desktop session "
+                        "with a valid XAUTHORITY, or unset DISPLAY for a headless launch."
+                    )
+                # FamilyWild makes the selected cookie usable with the container hostname.
+                data = "\n".join("ffff" + row[4:] for row in records) + "\n"
+                subprocess.run(
+                    ["xauth", "-f", str(authority), "nmerge", "-"],
+                    input=data, text=True, check=True, capture_output=True,
+                )
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                raise click.ClickException(
+                    "Could not prepare X11 authentication. Install xauth and check "
+                    "DISPLAY/XAUTHORITY, or unset DISPLAY for a headless launch."
+                ) from None
+            authority.chmod(0o600)
+            args = [
+                "--mount", f"type=bind,src={authority},dst=/run/pow.Xauthority,readonly",
+                "--env", "XAUTHORITY=/run/pow.Xauthority",
+            ]
+            if display.startswith((":", "unix:")):
+                args.extend([
+                    "--mount", "type=bind,src=/tmp/.X11-unix,dst=/tmp/.X11-unix,readonly",
+                ])
+            yield args
 
     @staticmethod
     def _is_container_running(container_name: str) -> bool:
@@ -450,19 +486,15 @@ class RosManager:
         cmd.extend(["--name", container_name, docker_image])
         cmd.extend(extra_args or ["/bin/bash"])
 
-        # Remove any stale stopped/exited container with the same name
-        # to prevent "name already in use" conflicts.
-        subprocess.run(
-            ["docker", "rm", "-f", container_name],
-            capture_output=True,
-        )
-
         console.print(f"[dim]Starting container from image:[/dim] [cyan]{docker_image}[/cyan]")
         if verbose:
             console.print(f"[blue]Running: {' '.join(shlex.quote(c) for c in cmd)}[/blue]")
 
         try:
-            subprocess.run(cmd, check=True, env=os.environ)
+            with RosManager._x11_args() as x11_args:
+                # Authenticate before modifying an existing container.
+                subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+                subprocess.run(cmd[:2] + x11_args + cmd[2:], check=True, env=os.environ)
         except subprocess.CalledProcessError as e:
             raise click.ClickException(f"Docker container exited with code {e.returncode}")
         except KeyboardInterrupt:
@@ -484,8 +516,6 @@ class RosManager:
             verbose: When True, print status feedback to the console.
         """
         config, docker_image = RosManager._load_and_validate_config()
-
-        RosManager._unlock_x11(verbose=verbose)
 
         container_name = config.ros_container_name
 

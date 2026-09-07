@@ -234,6 +234,19 @@ pow ros launch <args>
 | :------------------ | :--------------------------------------- |
 | `-v`, `--verbose`   | Show detailed feedback during launch     |
 
+GUI launches require host `xauth` and credentials for the current `DISPLAY`.
+pow reads `XAUTHORITY` (or the default `~/.Xauthority`), copies only that
+display's credentials into a private temporary file, and mounts the copy
+read-only into the container. It does not change X11 access control. The copy
+is removed when the Docker client returns; a detached container retains its
+existing bind mount until it exits. Attachments reuse the container's mount.
+
+If authentication fails, install `xauth` (`sudo apt install xauth`) and launch
+from a desktop terminal with valid `DISPLAY` and `XAUTHORITY`. For a headless
+session, use `env -u DISPLAY pow ros`. Recreate containers started with older
+pow versions to receive the authentication mount. GUI applications in the
+container still have access to your X11 desktop through this cookie.
+
 ### `pow ros build`
 
 Build the custom ROS image from the Dockerfile referenced by `ros_dockerfile` in `pow.toml`, tagging it with `ros_docker_image`. If the base `pow_simros_jazzy` image is missing, it is built first (this requires the ROS workspace set up by `pow init`).
