@@ -55,7 +55,7 @@ remote, so confirm each one first — see
    gh release create v<semver> \
      --title "pow@v<semver>" \
      --prerelease \
-     --notes "Please refer to [CHANGELOG.md](https://github.com/isaac-powerpack/pow/blob/v<semver>/packages/pow-cli/CHANGELOG.md) for details."
+     --notes "Please refer to [CHANGELOG.md](https://github.com/omnicraftlab/pow/blob/v<semver>/packages/pow-cli/CHANGELOG.md) for details."
    ```
    - The title keeps the `v` (`pow@v0.3.0-rc.1`), matching every existing release.
    - Pass `--prerelease` only when the version has an `a`/`b`/`rc` part; omit it
