@@ -85,7 +85,7 @@ jobs:
         run: uv build --package pow-cli --out-dir dist
 
       - name: Check metadata
-        run: uvx twine@6.2.0 check dist/*
+        run: uvx twine@7.0.0 check dist/*
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
