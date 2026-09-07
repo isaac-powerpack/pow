@@ -4,6 +4,10 @@ All notable changes to the `pow-cli` package will be documented in this file.
 
 ## [Unreleased]
 
+---
+
+## [0.3.0] - 2026-09-07
+
 ### Added
 
 - **`pow lint` rule 4 — Isaac asset version mismatch.** Asset references pointing
