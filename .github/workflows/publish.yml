@@ -23,7 +23,7 @@ jobs:
     # Only this repo (never a fork) and only the maintainer may publish.
     # actor = who published the release; triggering_actor = who re-ran the run.
     if: >-
-      github.repository == 'isaac-powerpack/pow' &&
+      github.repository == 'omnicraftlab/pow' &&
       github.actor == 'bemunin' &&
       github.triggering_actor == 'bemunin'
     runs-on: ubuntu-latest

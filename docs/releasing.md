@@ -9,7 +9,7 @@ tag by itself publishes nothing — the workflow only reacts to the release.
 ## Who can release
 
 Only `bemunin` can publish. The build job's `if:` condition requires the repository
-to be `isaac-powerpack/pow` (so forks never run it) and both `github.actor` (who
+to be `omnicraftlab/pow` (so forks never run it) and both `github.actor` (who
 published the release) and `github.triggering_actor` (who re-ran the workflow) to be
 that login. An unauthorized trigger skips the whole run silently — nothing reaches
 either index. The PyPI job additionally waits on the `pypi` environment's required
@@ -72,7 +72,7 @@ repo keep working, but new releases should use the SemVer form.
    gh release create v0.3.0-rc.1 \
      --title "pow@v0.3.0-rc.1" \
      --prerelease \
-     --notes "Please refer to [CHANGELOG.md](https://github.com/isaac-powerpack/pow/blob/v0.3.0-rc.1/packages/pow-cli/CHANGELOG.md) for details."
+     --notes "Please refer to [CHANGELOG.md](https://github.com/omnicraftlab/pow/blob/v0.3.0-rc.1/packages/pow-cli/CHANGELOG.md) for details."
    ```
    The title keeps the `v` (`pow@v0.3.0-rc.1`), matching every existing release.
    Drop `--prerelease` for a stable release. The `blob/<tag>` path must be the tag
@@ -126,7 +126,7 @@ reached PyPI cannot be reused — bump to a new one.
 Already configured, but recorded here in case the project or repo moves:
 
 - **PyPI** → project `pow-cli` → Settings → Publishing: trusted publisher for owner
-  `isaac-powerpack`, repo `pow`, workflow `publish.yml`, environment `pypi`.
+  `omnicraftlab`, repo `pow`, workflow `publish.yml`, environment `pypi`.
 - **TestPyPI** → same values, environment `testpypi` (as a *pending* publisher if the
   project does not exist there yet).
 - **GitHub** → Settings → Environments: `testpypi` with no protection, `pypi` with
