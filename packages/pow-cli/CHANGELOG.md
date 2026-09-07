@@ -69,6 +69,15 @@ All notable changes to the `pow-cli` package will be documented in this file.
 
 ### Security
 
+- **ROS containers no longer disable X11 access control with `xhost +`.** When
+  `DISPLAY` is set, `pow ros` now copies only the current display's Xauthority
+  record into a private temporary file, mounts it read-only in the container,
+  and sets the container's `XAUTHORITY` to that file. The host's authority file
+  and X server access-control settings are left unchanged, and the temporary
+  credentials are removed when the Docker client exits. Headless launches skip
+  X11 setup; GUI launches fail with an actionable message when `xauth` or valid
+  display credentials are unavailable. Existing running containers must be
+  recreated to receive the new authentication mount.
 - An Isaac Sim version can no longer escape `.pow/isaacsim/`: versions used as a
   path component are validated, and download URLs are only ever read from the
   release registry, never built from a supplied version string.
