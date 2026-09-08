@@ -61,8 +61,10 @@ uv tool list
 
 # move to the latest release
 uv tool upgrade pow-cli
+```
 
-# remove it
+To uninstall it from your system:
+```bash
 uv tool uninstall pow-cli
 ```
 
