@@ -2,8 +2,8 @@
     <img src="https://raw.githubusercontent.com/bemunin/isaac-powerpack/main/docs/public/logo.svg" width="400"/>
 </p>
 
-
 **Isaac Powerpack** (or **Pow** for short) is a project management tool that aims to reduce friction in **NVIDIA Isaac Sim** application development.
+
 
 Key features:
 
@@ -14,13 +14,21 @@ Key features:
 * 🐢 Simple commands for building and running Isaac Sim ROS 2 Docker containers.
 * 🎨 Local asset management and USDA linting tools.
 
-For the full list of ready-to-use commands and options, see the [CLI Reference](docs/cli-reference.md).
+Support platforms:
 
-## Installation
+| Platform              | Version / Notes              |
+| :-------------------- | :--------------------------- |
+| OS                    | Ubuntu 22.04 / 24.04         |
+| ROS 2 Docker          | Jazzy                        |
+| Isaac Sim             | `6.0.1` (default), `5.1.0`   |
+
+For the full list of ready-to-use commands and options, see the [CLI Reference](docs/cli-reference.md).
 
 > [!NOTE]
 > Pow CLI is actively evolving. New releases may introduce changes to commands, configuration options, or APIs. See the [Changelog](packages/pow-cli/CHANGELOG.md) for the latest updates.
 
+
+## Installation
 
 Pow CLI requires [uv](https://docs.astral.sh/uv/) and [Docker](https://docs.docker.com/get-docker/) (for ROS 2 container support). Ensure both are installed before proceeding:
 
@@ -221,21 +229,6 @@ the newest installed version:
 [sim]
 default_version = "6.0.1"
 ```
-
-
-## Support
-
-| Platform              | Version / Notes              |
-| :-------------------- | :--------------------------- |
-| OS                    | Ubuntu 22.04 / 24.04         |
-| ROS 2 Docker          | Jazzy                        |
-| Isaac Sim             | `6.0.1` (default), `5.1.0`   |
-
-> [!NOTE]
-> Isaac Sim runs on Ubuntu 22.04 and 24.04; the ROS 2 workspace and Docker integration support Jazzy only.
-> `pow init` asks which Isaac Sim version to install, or takes it from `--sim-version` / the `[sim] version` key of an existing `pow.toml`.  
-
-<br>    
 
 ## Contribution
 
