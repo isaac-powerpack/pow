@@ -2,14 +2,13 @@
     <img src="https://raw.githubusercontent.com/bemunin/isaac-powerpack/main/docs/public/logo.svg" width="400"/>
 </p>
 
-> Simplify NVIDIA Isaac Sim development with *Isaac Powerpack*
 
-**Isaac Powerpack** (or **Pow** for short) is a project management tool that aims to reduce friction of **NVIDIA Isaac Sim** application development.
+**Isaac Powerpack** (or **Pow** for short) is a project management tool that aims to reduce friction in **NVIDIA Isaac Sim** application development.
 
 Key features:
 
 * ⚡ CLI to simplify Isaac Sim workstation installation, setup, and launching.
-* 📁 Provides an organized folder structure, ready to get started.
+* 📁 Provides an organized folder structure to help you get started.
 * 📦 Keeps your Isaac Sim projects isolated from each other.
 * 🛠️ Allows for configuring different Isaac Sim runtime settings via profiles.
 * 🐢 Simple commands for building and running Isaac Sim ROS 2 Docker containers.
@@ -19,79 +18,64 @@ For the full list of ready-to-use commands and options, see the [CLI Reference](
 
 ## Installation
 
-> [!IMPORTANT]
-> This project is in early development. Features and APIs are still evolving and are subject to breaking changes. Please check the [Changelog](packages/pow-cli/CHANGELOG.md) for the latest updates.
+> [!NOTE]
+> Pow CLI is actively evolving. New releases may introduce changes to commands, configuration options, or APIs. See the [Changelog](packages/pow-cli/CHANGELOG.md) for the latest updates.
 
 
-Pow CLI requires uv and Docker (for ROS 2 container support). Ensure both are installed before proceeding:
-- [uv Installation Guide](https://docs.astral.sh/uv/)
-- [Docker Installation Guide](https://docs.docker.com/get-docker/)
+Pow CLI requires [uv](https://docs.astral.sh/uv/) and [Docker](https://docs.docker.com/get-docker/) (for ROS 2 container support). Ensure both are installed before proceeding:
 
 
-### User-level install
-
-Install `pow` once for your user and run it from any directory — no project needed:
+Install `pow` as a user-level tool:
 
 ```bash
-# install pow cli as a user-level tool
-uv tool install pow-cli==0.3.0
+# install the latest pow CLI as a user-level tool
+uv tool install pow-cli
 
 # add uv's tool directory to your PATH (once, then restart your shell)
 uv tool update-shell
 ```
 
-`pow` is now available everywhere — for example, run Isaac Sim from any directory
-with no project required:
+`pow` is now available everywhere — for example:
 
 ```bash
+# Run Isaac Sim from any directory
 pow sim
+
+# or run the compatibility checker to verify the machine meets Isaac Sim's requirements
+pow sim check
 ```
 
-Manage the installation with:
+If you have already installed `pow`, upgrade it with:
 
 ```bash
 # show the installed version
 uv tool list
 
 # move to the latest release
-uv tool install pow-cli@latest --force
+uv tool upgrade pow-cli
 
 # remove it
 uv tool uninstall pow-cli
 ```
 
-> [!NOTE]
-> Installing with an exact pin (`==0.2.0`) means `uv tool upgrade pow-cli` reports
-> *"Nothing to upgrade"*. Use `uv tool install pow-cli@latest --force` to move to a
-> newer version.
+## Usage
 
-### Project install
-
-Project commands such as `pow init` operate on a project folder. Add Pow CLI as a
-project dependency so the version is pinned in your `pyproject.toml`:
-
+Initialize a project:
 ```bash
 # create your project folder
-mkdir sim-project && cd sim-project
+mkdir your-project && cd your-project
 
 # create pyproject.toml and initialize uv
 uv init --bare
 
-# Initialize project, install isaac sim, setup ROS, create config file
+# Initialize the project, install Isaac Sim, set up ROS, and create the config file
 pow init
 
 # Or select the Isaac Sim version without the interactive picker
 pow init --sim-version 6.0.1
 ```
 
-When `pow.toml` already exists, `pow init` can update `version`, `enable_ros`,
-and `isaacsim_ros_ws` while preserving profiles, custom settings, comments, and
-key order. Choosing not to update leaves the file untouched; unless a command
-line option overrides one, its settings are reused during initialization.
-
-### Usages
-
-Check the installed Pow CLI version
+Check the installed Pow CLI version:
 
 ```bash
 pow --version
@@ -99,7 +83,7 @@ pow --version
 pow -v
 ```
 
-Run Isaac Sim
+Run Isaac Sim:
 
 ```bash
 # Run the current project's configured Isaac Sim version
@@ -109,30 +93,24 @@ pow run
 # ~/.pow/system.toml, or the newest installed version when it is unset.
 pow sim
 
-# Check whether the machine meets Isaac Sim's requirements
-pow sim check
 
 # Run a standalone Python application with Isaac Sim's Python
 pow python path/to/python_standalone_app.py
 ```
 
-Run ROS 2 container
+Run a ROS 2 container:
 
 ```bash
-# Build the custom ROS image configured by ros_dockerfile in pow.toml
+# Get into the ROS container. Later runs attach to the same container.
+pow ros
+
+# Build or rebuild the custom ROS image configured by ros_dockerfile in pow.toml
 pow ros build
 
-# Rebuild the custom image without Docker's layer cache
+# Rebuild the custom image entirely without Docker's layer cache
 pow ros build --no-cache
 
-# Open a shell in the ROS container. Later runs attach to the same container.
-pow ros
 ```
-
-`pow ros build` tags the custom image with `ros_docker_image`. If the bundled
-`pow_simros_jazzy` base image is missing, it is built first. When
-`ros_dockerfile` is empty, there is no custom image to build; `pow init` creates
-the bundled base image during ROS setup.
 
 
 ## Profiles
@@ -179,42 +157,51 @@ raw_args.add = [
 
 For the full settings reference, profile inheritance, and examples, see the [Configuration Guide](docs/configuration.md).
 
-## Local Assets
+## Asset Management
 
-The concept of Local assets is to download predefined assets in advanced from Nvidia Omniverse to your local machine to accelerate scene building and eliminate download bottleneck during scene creation. 
+Local assets let you download predefined asset collections from NVIDIA Omniverse in advance. Storing these assets locally speeds up scene building and avoids download bottlenecks during scene creation.
 
-You can attach the assets directory using `pow asset set` command to `~/.pow/assets` and download provided collection using `pow asset add`. Currently, only official Isaac Sim assets are available to download with add command.
-
-For more detail and feature about Local Assets command line, see `pow asset` command group in [CLI Reference](docs/cli-reference.md).
-
-`pow lint` also checks `.usda` asset references. When a project changes Isaac
-Sim versions, it reports and can fix `Assets/Isaac/<major>.<minor>` paths that
-do not match `[sim] version` in `pow.toml`:
+`pow asset` allow configure the local asset directory location to Nvidia Isaac Sim and also allow switching between different asset folders:
 
 ```bash
-pow lint ./usda       # report issues
-pow lint fix ./usda   # rewrite supported paths
+# Configure the local asset directory
+pow asset set /path/to/assets
+
+```
+For usage instructions and available options, see the `pow asset` command group in the [CLI Reference](docs/cli-reference.md).
+
+## Validate asset references
+
+`pow lint` checks asset references in `.usda` files. When you change the Isaac Sim version used by a project, it can detect and fix `Assets/Isaac/<major>.<minor>` paths that do not match the `[sim] version` configured in `pow.toml`:
+
+```bash
+# Report asset-reference issues
+pow lint ./usda
+
+# Rewrite supported asset paths
+pow lint fix ./usda
 ```
 
-See the [Lint Rules Guide](docs/lint-rules.md) for all path checks and examples.
+See the [Lint Rules Guide](docs/lint-rules.md) for all supported path checks and additional examples.
 
-## Folder Structure    
+
+## Project Structure
 
 After running `pow init`, your project will have the following structure:
 
 ```
-sim-project/
-├── .vscode/              # VSCode configuration (launch.json, settings.json, etc.)
-├── .modules/             # 3rd party module that use in your project e.g. pegasus sim
+your-project/
+├── .vscode/              # VS Code configuration (launch.json, settings.json, etc.)
+├── .modules/             # Third-party modules used in your project, e.g., Pegasus Simulator
 ├── exts/                 # Your custom Isaac Sim extensions
 ├── usda/                 # USD scene description files
-├── _isaacsim/            # Symlink → ~/.pow/isaacsim/<version> for intellisense and autocomplete
-├── .gitignore            # Pre-configured gitignore for Isaac Sim projects
+├── _isaacsim/            # Symlink → ~/.pow/isaacsim/<version> for IntelliSense and autocomplete
+├── .gitignore            # Preconfigured gitignore for Isaac Sim projects
 ├── pow.toml              # Project configuration (sim settings, profiles)
 └── pyproject.toml        # Python project manifest
 ```
 
-`pow init` also creates a **global directory** at `~/.pow` (shared across all projects):
+`pow init` also creates a **global directory** at `~/.pow` (shared across all projects). The `assets` symlink is added later by `pow asset set`:
 
 ```
 ~/.pow/
@@ -222,7 +209,7 @@ sim-project/
 │   ├── 5.1.0/            # Isaac Sim 5.1.0 app files
 │   └── 6.0.1/            # Isaac Sim 6.0.1 app files
 ├── modules/              # Shared modules
-├── assets/               # mounting folder for local assets
+├── assets/               # Symlink to the configured local asset directory
 └── system.toml           # Global system configuration ([sim] default_version, [asset])
 ```
 
@@ -241,18 +228,18 @@ default_version = "6.0.1"
 | Platform              | Version / Notes              |
 | :-------------------- | :--------------------------- |
 | OS                    | Ubuntu 22.04 / 24.04         |
-| ROS2 Docker           | Jazzy                        |
+| ROS 2 Docker          | Jazzy                        |
 | Isaac Sim             | `6.0.1` (default), `5.1.0`   |
 
 > [!NOTE]
-> Isaac Sim runs on Ubuntu 22.04 and 24.04; the ROS 2 workspace and docker integration support Jazzy only.  
+> Isaac Sim runs on Ubuntu 22.04 and 24.04; the ROS 2 workspace and Docker integration support Jazzy only.
 > `pow init` asks which Isaac Sim version to install, or takes it from `--sim-version` / the `[sim] version` key of an existing `pow.toml`.  
 
 <br>    
 
 ## Contribution
 
-See [Contribution Guide](docs/contributing.md)
+See the [Contribution Guide](docs/contributing.md)
 
 Maintainers publishing a new version: see the [Release Guide](docs/releasing.md).
 
