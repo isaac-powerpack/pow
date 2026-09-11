@@ -410,7 +410,7 @@ def _install(base, version):
 def test_supported_versions_are_ordered_latest_first():
     """The default, the picker and resolve_installed_version all take the head."""
     assert PowConfig.SUPPORTED_ISAACSIM_VERSIONS[0] == PowConfig.ISAACSIM_VERSION
-    assert PowConfig.SUPPORTED_ISAACSIM_VERSIONS == ("6.0.1", "5.1.0")
+    assert PowConfig.SUPPORTED_ISAACSIM_VERSIONS == ("6.1.0", "6.0.1", "5.1.0")
 
 
 def test_installed_versions_lists_latest_first(tmp_path):

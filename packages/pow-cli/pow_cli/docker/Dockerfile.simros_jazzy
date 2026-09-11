@@ -2,7 +2,7 @@
 # pow_simros Dockerfile – ROS 2 Jazzy
 #
 # Builds a ROS 2 Jazzy workspace image for Isaac Sim following steps 2-6 of:
-#   https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/install_ros.html
+#   https://docs.isaacsim.omniverse.nvidia.com/6.1.0/installation/install_ros.html
 #       #running-ros-in-docker-containers
 #
 # Usage:
@@ -265,8 +265,8 @@ if [ -d "/jazzy_ws/build" ]; then
     done
     if [ -n "$_stale" ]; then
         echo "[pow_simros] Stale build artifacts detected (references missing path: $_stale)."
-        echo "[pow_simros] Cleaning build/, install/, and log/ for a fresh build..."
-        rm -rf /jazzy_ws/build /jazzy_ws/install /jazzy_ws/log
+        echo "[pow_simros] Preserve this workspace; select a separate checkout or explicitly clean build/, install/, log/ and rebuild."
+        exit 1
     fi
 fi
 

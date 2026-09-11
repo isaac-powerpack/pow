@@ -29,13 +29,13 @@ pow init --sim-version 5.1.0
 
 | Option          | Description                                                     |
 | :-------------- | :-------------------------------------------------------------- |
-| `--sim-version` | Isaac Sim version to install: `6.0.1` or `5.1.0`. Skips the picker |
+| `--sim-version` | Isaac Sim version to install: `6.1.0`, `6.0.1` or `5.1.0`. Skips the picker |
 
 The version is resolved in this order:
 
 1. `--sim-version`
 2. `[sim] version` from an existing `pow.toml` you chose to keep at step 2
-3. The step-4 picker, with the cursor on `6.0.1`
+3. The step-4 picker, with the cursor on the global default, or `6.1.0` when unset
 
 Step 4 lists the installable versions latest first, marking which one is the
 latest release and which are already present in `~/.pow/isaacsim/`. Move with
@@ -44,7 +44,8 @@ latest release and which are already present in `~/.pow/isaacsim/`. Move with
 ```
 [4/10] 📦 Isaac Sim App: Select a version to install
 
-   ❯ 6.0.1 (latest)
+   ❯ 6.1.0 (latest)
+     6.0.1
      5.1.0 (installed)
 
    ↑/↓ to move, Enter to confirm
@@ -52,7 +53,7 @@ latest release and which are already present in `~/.pow/isaacsim/`. Move with
 
 > [!NOTE]
 > The picker needs a terminal. When stdin is piped, or in CI, `pow init` falls
-> back to a typed prompt (`Select Isaac Sim version [6.0.1/5.1.0] (6.0.1):`), so
+> back to a typed prompt (`Select Isaac Sim version [6.1.0/6.0.1/5.1.0] (6.1.0):`), so
 > the command stays scriptable. Use `--sim-version` to skip the question entirely.
 
 The chosen version drives the download, the matching `IsaacSim-<version>` ROS
@@ -389,3 +390,17 @@ pow --version
 # or
 pow -v
 ```
+
+### Rebuilding an incompatible ROS image during initialization
+
+When an existing bundled ROS image is unlabelled or targets another simulator,
+`pow init` asks whether to rebuild it for the selected version. The default is No;
+declining stops initialization. Accepting builds with the selected workspace and
+version label, retaining Docker's build cache and updating the existing image tag.
+Custom-image building continues only after the bundled build succeeds.
+
+The rebuild does not delete images, containers, volumes, or workspace files.
+Existing containers keep their old image: preserve any needed data and explicitly
+recreate them to use the new image. Docker inspection errors are reported directly
+and do not trigger the rebuild prompt. A failed build stops initialization and
+reports its diagnostic output.

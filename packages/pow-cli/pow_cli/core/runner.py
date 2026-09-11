@@ -274,6 +274,15 @@ class Runner:
                 "The check app started but reported nothing - see the errors above."
             )
 
+        verdicts = [line.split("System checking result:", 1)[1].strip()
+                    for line in output_lines if "System checking result:" in line]
+        if any(verdict != "PASSED" for verdict in verdicts):
+            raise click.ClickException(
+                "Compatibility check failed or returned an unrecognized result: "
+                + "; ".join(verdicts)
+                + ". Inspect the checker output; hardware compatibility is not confirmed."
+            )
+
     @staticmethod
     def _compat_check_pythonpath(isaacsim_dir: Path) -> list[str]:
         """Install-local directories that provide ``packaging`` and ``setuptools``.

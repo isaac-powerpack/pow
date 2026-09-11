@@ -145,3 +145,17 @@ class TestAssetVersionRuleIsOptional:
 
         assert [i.replacement for i in issues] == ["@pow-assets/Pow/MyRobot/robot.usd@"]
         assert issues[0].label == "relative path → use pow-assets alias"
+
+
+@pytest.mark.parametrize("source", ["5.1", "6.0", "6.1"])
+def test_610_asset_fixes_are_explicit_and_idempotent(project, source):
+    usda = project(_ref(source), pow_toml='[sim]\nversion = "6.1.0"\n')
+    original = usda.read_text()
+    issues = lint_file(usda)
+    assert usda.read_text() == original
+    assert bool(issues) == (source != "6.1")
+    fix_file(usda, issues)
+    assert usda.read_text() == _ref("6.1")
+    assert lint_file(usda) == []
+    fix_file(usda, [])
+    assert usda.read_text() == _ref("6.1")

@@ -20,7 +20,7 @@ Support platforms:
 | :-------------------- | :--------------------------- |
 | OS                    | Ubuntu 22.04 / 24.04         |
 | ROS 2 Docker          | Jazzy                        |
-| Isaac Sim             | `6.0.1` (default), `5.1.0`   |
+| Isaac Sim             | `6.1.0` (default), `6.0.1`, `5.1.0`   |
 
 For the full list of ready-to-use commands and options, see the [CLI Reference](docs/cli-reference.md).
 
@@ -82,7 +82,7 @@ uv init --bare
 pow init
 
 # Or select the Isaac Sim version without the interactive picker
-pow init --sim-version 6.0.1
+pow init --sim-version 6.1.0
 ```
 
 Check the installed Pow CLI version:
@@ -138,7 +138,7 @@ In the example below, the `"perf"` profile extends `"default"`, enables CPU perf
 
 ```toml
 [sim]
-version = "6.0.1"
+version = "6.1.0"
 ext_folders = ["./exts"]
 cpu_performance_mode = false
 headless = false
@@ -229,7 +229,7 @@ the newest installed version:
 
 ```toml
 [sim]
-default_version = "6.0.1"
+default_version = "6.1.0"
 ```
 
 ## Contribution
@@ -241,3 +241,6 @@ Maintainers publishing a new version: see the [Release Guide](docs/releasing.md)
 ## License
 
 [Apache-2.0](LICENSE).
+
+See [Isaac Sim 6.1 upgrade and validation notes](docs/isaac-sim-6.1.md) for explicit
+upgrade/rollback, ROS rebuild requirements, upstream references and manual checks.

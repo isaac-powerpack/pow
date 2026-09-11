@@ -8,7 +8,7 @@ The `[sim]` section defines the base (default) settings used by `pow run`:
 
 ```toml
 [sim]
-version = "6.0.1"
+version = "6.1.0"
 ext_folders = ["./exts"]
 cpu_performance_mode = false
 headless = false
@@ -25,7 +25,7 @@ raw_args = ["--/renderer/raytracingMotion/enabled=false"]
 
 | Key                    | Type       | Default                              | Description |
 |:-----------------------|:-----------|:-------------------------------------|:------------|
-| `version`              | `string`   | `"6.0.1"`                            | Isaac Sim version to use. One of `6.0.1` or `5.1.0`. `pow init` installs this version when you keep an existing `pow.toml`. |
+| `version`              | `string`   | `"6.1.0"`                            | Isaac Sim version to use. One of `6.1.0`, `6.0.1` or `5.1.0`. `pow init` installs this version when you keep an existing `pow.toml`. |
 | `ext_folders`          | `string[]` | `["./exts"]`                         | Directories to search for custom extensions. |
 | `cpu_performance_mode` | `bool`     | `false`                              | Enable CPU performance governor via `cpupower` (requires `sudo`). Skipped when the governor is already `performance`, so the password is normally asked once rather than on every launch — see the note below. |
 | `headless`             | `bool`     | `false`                              | Run Isaac Sim without the GUI window. |
@@ -209,7 +209,7 @@ In this example:
 
 ```toml
 [sim]
-version = "6.0.1"
+version = "6.1.0"
 ext_folders = ["./exts"]
 cpu_performance_mode = false
 headless = false

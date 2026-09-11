@@ -170,10 +170,12 @@ def _resolve_sim_version(flag_version: str | None, config_version: str | None) -
         )
         return config_version
 
+    default = PowConfig.configured_default_version() or PowConfig.ISAACSIM_VERSION
+    PowConfig.release(default)
     return ask_choice(
         "Select Isaac Sim version",
         _version_choices(),
-        default=PowConfig.ISAACSIM_VERSION,
+        default=default,
     )
 
 
@@ -394,11 +396,26 @@ def _step6_ros_integration(
             line = state[len("simros_building:"):]
             simros_status.update(f"[bold green]pow_simros build:[/bold green] [dim]{line[:80]}[/dim]")
 
+    def confirm_simros_rebuild(image, version):
+        simros_status.stop()
+        try:
+            console.print(
+                f"   ROS image '{image}' is unlabelled or targets another simulator. "
+                "Rebuilding updates its tag using Docker's cache. Existing containers "
+                "and workspace files are preserved; recreate containers explicitly "
+                "to use the rebuilt image."
+            )
+            return Confirm.ask(f"   Rebuild '{image}' for Isaac Sim {version}?", default=False)
+        finally:
+            simros_status.start()
+
     with console.status("Building pow_simros image...") as simros_status:
         try:
             ros_mgr.build_simros_image(
                 status_callback=simros_status_callback,
                 ws_path=resolved_ws,
+                sim_version=sim_version,
+                confirm_rebuild=confirm_simros_rebuild,
             )
         except Exception as e:
             console.print(f"   [bold red]❌ pow_simros Build Error:[/bold red] {e}")
@@ -425,7 +442,10 @@ def _step6_ros_integration(
 
         with console.status(f"Building custom image '{custom_image}'...") as custom_status:
             try:
-                ros_mgr.build_custom_ros_image(status_callback=custom_status_callback)
+                ros_mgr.build_custom_ros_image(
+                    status_callback=custom_status_callback,
+                    sim_version=sim_version, ws_path=resolved_ws,
+                )
             except Exception as e:
                 console.print(f"   [bold red]❌ Custom ROS Build Error:[/bold red] {e}")
                 console.print("   [yellow]⊖[/yellow] Skipping remaining steps due to build error.")
@@ -634,7 +654,7 @@ def init_cmd(sim_version: str | None):
 
     \b
     The Isaac Sim version comes from --sim-version, then from `[sim] version`
-    in an existing pow.toml you chose to keep, then from an interactive prompt.
+    in an existing pow.toml, then from an interactive prompt (global default or latest).
     """
     initializer = Initializer()
     config = initializer.get_config_path()
@@ -658,10 +678,11 @@ def init_cmd(sim_version: str | None):
     ros_forced = None
     ros_ws_forced = None
     version_forced = None
-    if not override_pow_toml:
+    if Path("pow.toml").exists():
         try:
-            ros_forced = initializer.config.get("enable_ros", False)
-            ros_ws_forced = initializer.config.get("isaacsim_ros_ws", None)
+            if not override_pow_toml or sim_version is not None:
+                ros_forced = initializer.config.get("enable_ros", False)
+                ros_ws_forced = initializer.config.get("isaacsim_ros_ws", None)
             version_forced = initializer.config.get("version", None)
         except Exception:
             pass
@@ -703,7 +724,7 @@ def init_cmd(sim_version: str | None):
     )
 
     finalized = _step10_finalize(
-        initializer, override_pow_toml, ros_enabled, isaacsim_ros_ws,
+        initializer, override_pow_toml or sim_version is not None, ros_enabled, isaacsim_ros_ws,
         sim_version=resolved_version,
     )
 

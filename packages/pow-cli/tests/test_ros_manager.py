@@ -126,7 +126,7 @@ def test_image_exists_appends_latest_for_untagged_reference(mocker):
 
 def test_image_exists_keeps_explicit_tag(mocker):
     """A tagged reference is inspected as-is (no extra :latest appended)."""
-    run = mocker.patch("subprocess.run", return_value=MagicMock(returncode=1))
+    run = mocker.patch("subprocess.run", return_value=MagicMock(returncode=1, stderr="Error: No such image", stdout=""))
 
     assert RosManager.image_exists("ghcr.io/acme/robot:v1") is False
     assert run.call_args[0][0] == [

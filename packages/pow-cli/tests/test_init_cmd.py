@@ -47,6 +47,10 @@ class TestInitCmd:
             return_value={"status": "Created", "path": "pow.toml"}
         )
         self.mock_sleep = mocker.patch("time.sleep")
+        mocker.patch("pow_cli.core.initializer.Initializer.link_managed_isaacsim",
+                     return_value={"status": "Existed", "path": "_isaacsim"})
+        mocker.patch("pow_cli.core.initializer.Initializer.setup_vscode_configs",
+                     return_value={"status": "Success", "results": []})
         self.runner = CliRunner()
 
 
@@ -277,7 +281,7 @@ class TestInitCmdSimVersion:
         assert result.exit_code == 0
         choices = self.mock_prompt.call_args[0][1]
         # Latest first, annotated from data pow already has.
-        assert choices == [("6.0.1", "latest"), ("5.1.0", "installed")]
+        assert choices == [("6.1.0", "latest"), ("6.0.1", ""), ("5.1.0", "installed")]
         assert self.mock_prompt.call_args.kwargs["default"] == PowConfig.ISAACSIM_VERSION
         assert self.mock_download.call_args.kwargs["version"] == "5.1.0"
 
@@ -288,7 +292,8 @@ class TestInitCmdSimVersion:
         self.runner.invoke(init_cmd, env={"NO_COLOR": "1", "TERM": "dumb"})
 
         assert self.mock_prompt.call_args[0][1] == [
-            ("6.0.1", "latest, installed"),
+            ("6.1.0", "latest"),
+            ("6.0.1", "installed"),
             ("5.1.0", ""),
         ]
 

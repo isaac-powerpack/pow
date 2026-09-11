@@ -93,7 +93,7 @@ class Initializer:
         """Resolve the Isaac Sim installation path.
 
         Checks the managed .pow/isaacsim/<version> folder first, then falls
-        back to importing the ``isaacsim`` Python package. Returns None if
+        back to matching ``isaacsim`` distribution metadata. Returns None if
         Isaac Sim cannot be located.
 
         Args:
@@ -106,12 +106,17 @@ class Initializer:
         if managed.is_dir():
             return managed
 
+        # Inspect distribution metadata without importing Isaac Sim (which can
+        # initialize its runtime). A different installed version is not a fallback.
+        from importlib.metadata import distribution, PackageNotFoundError
         try:
-            import isaacsim
-            pkg_path = Path(isaacsim.__file__).parent
-            if pkg_path.is_dir():
-                return pkg_path
-        except ImportError:
+            dist = distribution("isaacsim")
+            requested = version or self._configured_version()
+            if dist.version in (requested, requested + ".0"):
+                pkg_path = Path(dist.locate_file("isaacsim"))
+                if (pkg_path / "isaac-sim.sh").is_file():
+                    return pkg_path
+        except PackageNotFoundError:
             pass
 
         return None

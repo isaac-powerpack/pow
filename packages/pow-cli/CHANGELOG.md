@@ -4,6 +4,19 @@ All notable changes to the `pow-cli` package will be documented in this file.
 
 ## [Unreleased]
 
+- Offer a default-No bundled ROS image rebuild prompt during initialization; report Docker inspection failures separately and preserve existing containers and workspaces.
+
+Target: v0.4.0 (version bump and publication are separate).
+
+- Add Isaac Sim 6.1.0 installation and selection, retaining 6.0.1 and 5.1.0.
+- Default new projects to 6.1.0 unless a global preference is configured; preserve existing project versions and settings.
+- Reject unknown 6.1.0 ROS workspace/image/container provenance without changing user state; stop instead of deleting stale container-mounted build directories.
+- Remove the mandatory simulator dependency and declare the Python 3.10 TOML fallback.
+- Reject failed or unrecognized compatibility-check verdicts; actual 6.1.0 output and GPU workflows still require manual verification.
+- Use verified asset namespace mappings; document explicit upgrades, rollback and validation limits.
+
+## [Unreleased]
+
 ---
 
 ## [0.3.0] - 2026-09-07

@@ -58,8 +58,7 @@ _RELATIVE_POW_ASSETS_RE = re.compile(
 # Used to keep version checks out of comments and prim names.
 _ASSET_REF_RE = re.compile(r"@[^@]*@")
 
-# Isaac assets are published per minor release as Assets/Isaac/<major>.<minor>/...
-# (see ~/.pow/assets/Assets/Isaac, which holds 5.0, 5.1 and 6.0 side by side).
+# Known release namespaces are verified in PowConfig.ISAACSIM_RELEASES.
 _ISAAC_ASSET_VERSION_TEMPLATE = r"Assets/Isaac/(?!{target}/)(\d+\.\d+)(?=/)"
 
 
@@ -109,15 +108,10 @@ class AliasConfig:
 
 
 def _asset_version_of(sim_version: str) -> str:
-    """The Assets/Isaac directory a given Isaac Sim version reads from.
+    """Verified asset namespaces; unknown releases must not rewrite scenes."""
+    from .models.pow_config import PowConfig
 
-    NVIDIA publishes the asset tree per minor release, so "6.0.1" reads from
-    ``Assets/Isaac/6.0``.  Derived rather than tabulated, so the next release
-    needs no code change.  Returns "" for anything that is not ``<major>.<minor>``,
-    which switches the rule off.
-    """
-    match = re.match(r"^(\d+)\.(\d+)(?:\.|$)", sim_version.strip())
-    return f"{match.group(1)}.{match.group(2)}" if match else ""
+    return PowConfig.ISAACSIM_RELEASES.get(sim_version.strip(), {}).get("asset_version", "")
 
 
 def scan_directory(path: Path) -> List[Path]:

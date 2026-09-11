@@ -6,6 +6,7 @@ Initializer and Runner.
 """
 
 import os
+import json
 import shlex
 import subprocess
 import tempfile
@@ -20,6 +21,10 @@ from .models.pow_config import PowConfig
 console = Console()
 
 
+class ImageCompatibilityError(click.ClickException):
+    """An inspected ROS image is unlabelled or targets another simulator."""
+
+
 class RosManager:
     """Manages all ROS-related operations for Isaac Powerpack."""
 
@@ -29,6 +34,54 @@ class RosManager:
     @property
     def config(self) -> PowConfig:
         return self._config
+
+    _SIM_LABEL = "org.omnicraftlab.pow.sim-version"
+
+    @staticmethod
+    def validate_workspace(ws_path: Path, sim_version: str) -> None:
+        """Check provenance without changing a user's checkout or build files."""
+        expected_commit = PowConfig.ISAACSIM_RELEASES.get(sim_version, {}).get("ros_ws_commit")
+        if not expected_commit:
+            return
+        result = subprocess.run(
+            ["git", "-C", str(ws_path), "rev-parse", "HEAD"],
+            capture_output=True, text=True,
+        )
+        if result.returncode or result.stdout.strip() != expected_commit:
+            raise click.ClickException(
+                f"Cannot establish Isaac Sim {sim_version} compatibility for {ws_path}. "
+                "Keep this checkout and its changes; clone the official "
+                "IsaacSim-6.1.0 tag into a separate directory and select it with "
+                "isaacsim_ros_ws in pow.toml. No checkout was changed."
+            )
+
+    @staticmethod
+    def validate_image(image: str, sim_version: str) -> None:
+        if sim_version != "6.1.0":
+            return
+        result = subprocess.run(
+            ["docker", "image", "inspect", image], capture_output=True, text=True,
+        )
+        if result.returncode:
+            raise click.ClickException(
+                f"Could not inspect ROS image '{image}': "
+                f"{result.stderr.strip() or result.stdout.strip() or f'Docker exited with code {result.returncode}'}"
+            )
+        try:
+            labels = json.loads(result.stdout)[0]["Config"].get("Labels") or {}
+            if not isinstance(labels, dict):
+                raise ValueError("Labels must be an object")
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError) as exc:
+            raise click.ClickException(
+                f"Could not inspect ROS image '{image}': invalid Docker inspection output ({exc})."
+            ) from exc
+        if labels.get(RosManager._SIM_LABEL) != sim_version:
+            raise ImageCompatibilityError(
+                f"ROS image '{image}' has unknown or incompatible provenance for {sim_version}. "
+                "Run pow init and accept the bundled-image rebuild prompt, then rebuild "
+                "custom images with pow ros build. Existing containers must be explicitly "
+                "recreated to use the rebuilt image. Nothing was removed."
+            )
 
     # ── Environment preparation ──────────────────────────────────────────────
 
@@ -156,6 +209,8 @@ class RosManager:
             if status_callback:
                 status_callback("existed")
 
+        self.validate_workspace(clone_path, sim_version)
+
         return {
             "status": "success",
             "ros_distro": ros_distro,
@@ -188,10 +243,11 @@ class RosManager:
             pass
         return None
 
-    def build_simros_image(self, status_callback=None, ws_path: "Path | None" = None) -> dict:
+    def build_simros_image(self, status_callback=None, ws_path: "Path | None" = None, sim_version: str | None = None, confirm_rebuild=None) -> dict:
         """Build pow_simros_<distro> Docker image using Dockerfile.simros_<distro>.
 
-        Skips the build if the image already exists locally.
+        Reuses compatible images. An incompatible image is rebuilt only when
+        the optional confirm_rebuild(image, version) callback returns True.
 
         Args:
             ws_path: Explicit workspace path override.  When ``None`` the
@@ -203,11 +259,19 @@ class RosManager:
         distro_ws = ros_ws / f"{ros_distro}_ws"
         dockerfile_path = Path(__file__).parent.parent / "docker" / f"Dockerfile.simros_{ros_distro}"
 
-        # Check if image already exists
+        sim_version = sim_version or self.config.get("version", PowConfig.ISAACSIM_VERSION)
+        self.validate_workspace(ros_ws, sim_version)
+
         if RosManager.image_exists(docker_image):
-            if status_callback:
-                status_callback("simros_built")
-            return {"status": "existed", "image": docker_image}
+            try:
+                self.validate_image(docker_image, sim_version)
+            except ImageCompatibilityError:
+                if confirm_rebuild is None or not confirm_rebuild(docker_image, sim_version):
+                    raise
+            else:
+                if status_callback:
+                    status_callback("simros_built")
+                return {"status": "existed", "image": docker_image}
 
         if status_callback:
             status_callback("simros_building")
@@ -222,6 +286,7 @@ class RosManager:
             "-f", str(dockerfile_path),
             "-t", docker_image,
             "--build-context", f"ros_ws={distro_ws}",
+            "--label", f"{self._SIM_LABEL}={sim_version}",
         ]
 
         if cuda_version:
@@ -256,7 +321,7 @@ class RosManager:
 
         return {"status": "built", "image": docker_image}
 
-    def build_custom_ros_image(self, status_callback=None, no_cache: bool = False) -> dict:
+    def build_custom_ros_image(self, status_callback=None, no_cache: bool = False, sim_version: str | None = None, ws_path: Path | None = None) -> dict:
         """Build a custom ROS image layered on top of ``pow_simros_<distro>``.
 
         Builds the Dockerfile referenced by ``ros_dockerfile`` in pow.toml,
@@ -284,6 +349,9 @@ class RosManager:
                 f"Check the 'ros_dockerfile' path in pow.toml."
             )
 
+        version = sim_version or self.config.get("version", PowConfig.ISAACSIM_VERSION)
+        self.validate_workspace(ws_path or self.config.ros_ws_path, version)
+        self.validate_image(f"pow_simros_{self.config.ros_distro}", version)
         image = self.config.ros_docker_image
 
         if status_callback:
@@ -333,9 +401,17 @@ class RosManager:
         ref = image if ":" in image.rsplit("/", 1)[-1] else f"{image}:latest"
         result = subprocess.run(
             ["docker", "image", "inspect", ref],
-            capture_output=True,
+            capture_output=True, text=True,
         )
-        return result.returncode == 0
+        if result.returncode == 0:
+            return True
+        detail = result.stderr.strip() or result.stdout.strip()
+        if "no such image" in detail.lower() or "no such object" in detail.lower():
+            return False
+        raise click.ClickException(
+            f"Could not inspect ROS image '{image}': "
+            f"{detail or f'Docker exited with code {result.returncode}'}"
+        )
 
     # ── Container launching (from Runner) ────────────────────────────────────
 
@@ -361,6 +437,9 @@ class RosManager:
                 "Run 'pow ros build' (or 'pow init') to build it."
             )
 
+        version = config.get("version", PowConfig.ISAACSIM_VERSION)
+        RosManager.validate_workspace(config.ros_ws_path, version)
+        RosManager.validate_image(docker_image, version)
         return config, docker_image
 
     @staticmethod
@@ -520,6 +599,28 @@ class RosManager:
         container_name = config.ros_container_name
 
         if RosManager._is_container_running(container_name):
+            if config.get("version", PowConfig.ISAACSIM_VERSION) == "6.1.0":
+                result = subprocess.run(
+                    ["docker", "container", "inspect", container_name],
+                    capture_output=True, text=True,
+                )
+                try:
+                    data = json.loads(result.stdout)[0]
+                    labels = data["Config"].get("Labels") or {}
+                    mounts = data.get("Mounts", [])
+                    expected = str((config.ros_ws_path / (config.ros_distro + "_ws")).resolve())
+                    compatible = labels.get(RosManager._SIM_LABEL) == "6.1.0" and any(
+                        m.get("Source") == expected and m.get("Destination") == "/jazzy_ws"
+                        for m in mounts
+                    )
+                except (ValueError, KeyError, IndexError, TypeError):
+                    compatible = False
+                if result.returncode or not compatible:
+                    raise click.ClickException(
+                        f"Container '{container_name}' is incompatible or unverified. "
+                        "Preserve its data, then explicitly stop/remove it and rerun pow ros "
+                        "to create a container from the rebuilt image and selected workspace."
+                    )
             RosManager._attach_to_container(container_name, docker_image, extra_args, verbose=verbose)
         else:
             RosManager._start_new_container(config, docker_image, extra_args, verbose=verbose)

@@ -436,3 +436,10 @@ def test_run_sim_check_rejects_version_with_path_traversal(check_env):
         Runner.run_sim_check(version="../../etc")
 
     check_env["popen"].assert_not_called()
+
+
+@pytest.mark.parametrize("verdict", ["FAILED", "", "UNKNOWN"])
+def test_check_rejects_unsuccessful_or_unknown_verdict(check_env, verdict):
+    check_env["process"].stdout = iter([f"System checking result: {verdict}\n"])
+    with pytest.raises(click.ClickException, match="failed or returned an unrecognized"):
+        Runner.run_sim_check(version="6.1.0")

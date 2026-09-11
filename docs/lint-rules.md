@@ -105,8 +105,8 @@ NVIDIA publishes the Isaac asset tree once per minor release — `Assets/Isaac/5
 resolving after the project moves to 6.0.1, so nothing fails; it just quietly loads the
 previous release's assets. This rule makes that visible.
 
-The target is derived from `version` in `pow.toml`, so `6.0.1` → `Assets/Isaac/6.0` and
-`5.1.0` → `Assets/Isaac/5.1`. It applies to every reference form: production S3 URLs,
+The target uses verified release metadata from `version` in `pow.toml`, so `6.0.1` → `Assets/Isaac/6.0` and
+`5.1.0` → `Assets/Isaac/5.1`, and `6.1.0` → `Assets/Isaac/6.1`. Unknown releases are not rewritten. It applies to every reference form: production S3 URLs,
 `pow-assets` and `user-home` aliases, and still-relative paths.
 
 **Example** (with `version = "6.0.1"`):
@@ -124,3 +124,5 @@ configured version.
 > [!NOTE]
 > Rule 4 is only active when `version` is set in `pow.toml`. If the key is missing or
 > `pow.toml` is not found, this rule is skipped.
+
+Version-prefix fixes only change reference prefixes. They do not migrate renamed assets or application APIs. Scene changes require `pow lint fix`.
