@@ -5,6 +5,7 @@ All notable changes to the `pow-cli` package will be documented in this file.
 ## [Unreleased]
 
 - Offer a default-No bundled ROS image rebuild prompt during initialization; report Docker inspection failures separately and preserve existing containers and workspaces.
+- Hide setuptools' `setup.py install is deprecated` warning in pow_simros colcon builds (automatic and manual). Existing images need a rebuild (`docker rmi pow_simros_jazzy && pow init`).
 
 Target: v0.4.0 (version bump and publication are separate).
 

@@ -404,3 +404,18 @@ Existing containers keep their old image: preserve any needed data and explicitl
 recreate them to use the new image. Docker inspection errors are reported directly
 and do not trigger the rebuild prompt. A failed build stops initialization and
 reports its diagnostic output.
+
+### Picking up bundled ROS image changes
+
+`pow init` and `pow ros` reuse an existing `pow_simros_<distro>` image as long as its
+simulator label matches, so changes to the bundled Dockerfile (for example, the filter
+that hides setuptools' `setup.py install is deprecated` warning in colcon builds) take
+effect only after the image is rebuilt. With the ROS container stopped, remove the
+image and let `pow init` build it again:
+
+```bash
+docker rmi pow_simros_jazzy && pow init
+```
+
+If `ros_dockerfile` is set in pow.toml, run `pow ros build` afterwards so the custom
+image is layered on the new base.

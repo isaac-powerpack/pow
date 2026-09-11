@@ -276,8 +276,9 @@ if [ -f "/jazzy_ws/install/setup.bash" ]; then
 else
     cd /jazzy_ws
     # If we need to build, do it AS the new user so permissions are correct
-    gosu $TARGET_USER colcon build
+    gosu "$TARGET_USER" colcon build
     source install/local_setup.bash
+    echo "[pow_simros] ROS workspace build succeeded."
 fi
 
 # ── 5. Drop privileges and execute command ────────────────────────────────
@@ -286,6 +287,10 @@ exec gosu $TARGET_USER "$@"
 ENTRYEOF
 
 RUN chmod +x /ros_config/entrypoint.sh
+
+# Suppress this legacy setuptools warning for automatic and manual colcon builds,
+# including shells opened with docker exec. Other warnings remain visible.
+ENV PYTHONWARNINGS="ignore:setup.py install is deprecated"
 
 ENTRYPOINT ["/ros_config/entrypoint.sh"]
 CMD ["/bin/bash"]
