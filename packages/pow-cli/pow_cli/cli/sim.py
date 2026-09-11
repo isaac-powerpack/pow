@@ -2,7 +2,9 @@
 
 import click
 from rich.panel import Panel
+from ..common.installation import download_with_progress
 from ..common.utils import console
+from ..core.initializer import Initializer
 from ..core.models.pow_config import PowConfig
 from ..core.runner import Runner
 
@@ -15,26 +17,49 @@ def _default_sim_version() -> str:
     evaluates a callable default at parse time, so both the file read and the
     scan of ``<global>/isaacsim`` happen per invocation rather than at import.
     """
-    pinned = PowConfig.configured_default_version()
-    if not pinned:
-        return PowConfig.resolve_installed_version()
+    return PowConfig.configured_default_version() or PowConfig.resolve_installed_version()
 
-    installed = PowConfig.installed_versions()
-    # With nothing installed at all, honour the pin so the Runner's own
-    # "not found" error names the version the user asked for.
-    if installed and pinned not in installed:
-        fallback = PowConfig.resolve_installed_version()
+
+def _ensure_sim_ready(version: str, *, check: bool = False) -> None:
+    """Complete init's global setup steps without reading project settings."""
+    global_path = PowConfig.resolve_global_path()
+    isaacsim_path = PowConfig.version_dir(version, global_path)
+    initializer = Initializer(global_path=global_path)
+    installed = initializer.isaacsim_ready(isaacsim_path, check=check)
+    if not installed:
+        # Reject unavailable versions before making any setup changes. Existing
+        # manually installed versions need not be in the download allowlist.
+        PowConfig.release(version)
+
+    global_ready = all(
+        (global_path / sub).is_dir() for sub in Initializer.GLOBAL_SUBFOLDERS
+    ) and (global_path / "system.toml").is_file()
+    if not global_ready:
         console.print(
-            f"[yellow]⚠[/yellow]  system.toml pins Isaac Sim {pinned}, which is "
-            f"not installed; using {fallback}."
+            f"[blue]Preparing global configuration at [dim]{global_path}[/dim]...[/blue]"
         )
-        return fallback
-    return pinned
+        initializer.create_global_folder()
+        initializer.create_system_toml()
+
+    if not installed:
+        download_with_progress(initializer, version, check=check)
+    if not initializer.isaacsim_ready(isaacsim_path, check=check):
+        raise click.ClickException(
+            f"Isaac Sim installation at {isaacsim_path} is missing required scripts."
+        )
+
+    cache_path = initializer.asset_browser_cache_path(isaacsim_path)
+    if not cache_path.is_file():
+        console.print("[blue]Creating the missing Isaac Sim asset browser cache...[/blue]")
+        initializer.fix_asset_browser_cache(isaacsim_path)
+    if not cache_path.is_file():
+        raise click.ClickException(f"Isaac Sim asset browser cache is missing at {cache_path}.")
 
 
-def _guarded(action, **kwargs):
-    """Run a Runner action, rendering unexpected errors as a Sim Error panel."""
+def _guarded(action, *, check: bool = False, **kwargs):
+    """Ensure prerequisites, then run the action with consistent error output."""
     try:
+        _ensure_sim_ready(kwargs["version"], check=check)
         action(**kwargs)
     except click.ClickException:
         raise
@@ -102,6 +127,11 @@ def sim_group(ctx: click.Context):
       1. the -v/--version option
       2. [sim] default_version in .pow/system.toml
       3. the newest version installed under .pow/isaacsim/
+      4. the latest release supported by this pow CLI
+
+    Missing global folders, configuration, supported installations and the
+    asset browser cache are set up automatically before launch or check.
+    A missing pinned version is installed. Setup failures stop the command.
 
     \b
     Subcommands:
@@ -134,7 +164,7 @@ def sim_group(ctx: click.Context):
     "--version",
     "sim_version",
     default=_default_sim_version,
-    show_default="system.toml, else the installed version",
+    show_default="system.toml, else installed, else latest supported",
     help="Isaac Sim version to run.",
 )
 @click.option(
@@ -153,7 +183,7 @@ def sim_group(ctx: click.Context):
 )
 @click.pass_context
 def launch_cmd(ctx: click.Context, sim_version: str, ros_bridge: str, no_ros: bool):
-    """Launch Isaac Sim, forwarding extra args to isaac-sim.sh."""
+    """Set up missing prerequisites, then launch Isaac Sim with extra args."""
     _guarded(
         Runner.run_sim,
         version=sim_version,
@@ -171,12 +201,12 @@ def launch_cmd(ctx: click.Context, sim_version: str, ros_bridge: str, no_ros: bo
     "--version",
     "sim_version",
     default=_default_sim_version,
-    show_default="system.toml, else the installed version",
+    show_default="system.toml, else installed, else latest supported",
     help="Isaac Sim version to check.",
 )
 @click.pass_context
 def check_cmd(ctx: click.Context, sim_version: str):
-    """Run the Isaac Sim compatibility check.
+    """Set up missing prerequisites, then run the Isaac Sim compatibility check.
 
     \b
     Runs .pow/isaacsim/<version>/isaac-sim.compatibility_check.sh, which
@@ -184,4 +214,4 @@ def check_cmd(ctx: click.Context, sim_version: str):
     project, and the script builds its own ROS environment - forward
     `-- --no-ros-env` to skip that step.
     """
-    _guarded(Runner.run_sim_check, version=sim_version, extra_args=ctx.args)
+    _guarded(Runner.run_sim_check, check=True, version=sim_version, extra_args=ctx.args)

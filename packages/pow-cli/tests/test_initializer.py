@@ -25,66 +25,23 @@ class TestInitializer:
         assert result["global_dir_name"] == ".pow"
         assert result["global_path"] == Path("/home/user/.pow")
 
-    def test_create_global_folder_new(self, mocker, mock_config):
-        manager = Initializer()
+    @pytest.mark.parametrize("existing", [None, (), ("isaacsim",)])
+    def test_create_global_folder_fills_missing_subfolders(self, tmp_path, existing):
+        global_path = tmp_path / ".pow"
+        if existing is not None:
+            global_path.mkdir()
+            for sub in existing:
+                (global_path / sub).mkdir()
+        manager = Initializer(global_path=global_path)
 
-        # Mock existence: global doesn't exist
-        mocker.patch.object(Path, "exists", return_value=False)
-        mock_mkdir = mocker.patch.object(Path, "mkdir")
+        result = manager.create_global_folder()
 
-        init_data = manager.create_global_folder()
-
-        # Should call mkdir for global path and subfolders
-        # global_path.mkdir + 4 subfolder.mkdir
-        assert mock_mkdir.call_count == 5
-        assert init_data["global_existed"] is False
-        assert all(r["status"] == "Created" for r in init_data["results"])
-
-    def test_create_global_folder_exists_skips_subfolders(self, mocker, mock_config):
-        manager = Initializer()
-        global_path = mock_config.global_path
-
-        # Mock existence: global EXISTS, subfolders DON'T
-        def side_effect(path_obj):
-            if path_obj == global_path:
-                return True
-            return False
-
-        mocker.patch.object(Path, "exists", side_effect=side_effect, autospec=True)
-        mock_mkdir = mocker.patch.object(Path, "mkdir")
-
-        init_data = manager.create_global_folder()
-
-        # Should NOT call mkdir at all if global exists
-        mock_mkdir.assert_not_called()
-        assert init_data["global_existed"] is True
-        assert all(r["status"] == "Skipped" for r in init_data["results"])
-
-    def test_create_global_folder_exists_some_subfolders(self, mocker, mock_config):
-        manager = Initializer()
-        global_path = mock_config.global_path
-
-        # Mock existence: global EXISTS, some subfolders EXIST
-        def side_effect(path_obj):
-            if path_obj == global_path:
-                return True
-            if "isaacsim" in str(path_obj):
-                return True
-            return False
-
-        mocker.patch.object(Path, "exists", side_effect=side_effect, autospec=True)
-        mock_mkdir = mocker.patch.object(Path, "mkdir")
-
-        init_data = manager.create_global_folder()
-
-        mock_mkdir.assert_not_called()
-        assert init_data["global_existed"] is True
-
-        isaacsim_res = next(r for r in init_data["results"] if "isaacsim" in r["path"])
-        modules_res = next(r for r in init_data["results"] if "modules" in r["path"])
-
-        assert isaacsim_res["status"] == "Existed"
-        assert modules_res["status"] == "Skipped"
+        assert result["global_existed"] is (existing is not None)
+        assert all((global_path / sub).is_dir() for sub in manager.GLOBAL_SUBFOLDERS)
+        for item in result["results"]:
+            expected = "Existed" if Path(item["path"]).name in (existing or ()) else "Created"
+            assert item["status"] == expected
+        assert all(item["status"] == "Existed" for item in manager.create_global_folder()["results"])
 
 
 class TestLinkManagedIsaacsim:

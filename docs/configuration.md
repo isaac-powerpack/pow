@@ -51,7 +51,7 @@ raw_args = ["--/renderer/raytracingMotion/enabled=false"]
 
 ## Global Settings (`~/.pow/system.toml`)
 
-`pow init` also creates `~/.pow/system.toml`, which holds settings shared by every project on the machine:
+`pow init`, `pow sim`, and `pow sim check` create `~/.pow/system.toml` when missing. It holds settings shared by every project on the machine:
 
 ```toml
 [asset]
@@ -75,7 +75,7 @@ default_version = ""
 default_version = "5.1.0"
 ```
 
-`-v` on the command line still wins over it, and if the pinned version is not installed `pow sim` warns and falls back to the newest installed version. This is separate from `[sim] version` in a project's `pow.toml`, which is what `pow run` uses — `pow sim` never reads `pow.toml`.
+`-v` on the command line still wins over it. If the pinned version is missing, `pow sim` and `pow sim check` automatically install it before running. A missing version must be supported by the installed pow CLI to be downloaded; already-installed versions remain usable. With no pin or installed version, pow installs its latest supported release. This is separate from `[sim] version` in a project's `pow.toml`, which is what `pow run` uses — `pow sim` never reads `pow.toml`.
 
 ## Custom ROS Image
 

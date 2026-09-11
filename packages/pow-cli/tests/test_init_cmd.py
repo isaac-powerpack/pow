@@ -1,8 +1,22 @@
 import pytest
+from pathlib import Path
 from click.testing import CliRunner
 
 from pow_cli.cli.init import init_cmd
 from pow_cli.core.models.pow_config import PowConfig
+
+
+@pytest.fixture(autouse=True)
+def isolated_project(tmp_path, monkeypatch, reset_config_singleton):
+    """Initializer command tests must not write to the checkout or real home."""
+    home = tmp_path / "home"
+    home.mkdir()
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text("")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.chdir(project)
+
 
 @pytest.mark.cli
 class TestInitCmd:
@@ -13,6 +27,10 @@ class TestInitCmd:
             "pow_cli.core.initializer.Initializer.create_global_folder",
             return_value={"global_existed": False, "results": []}
         )
+        mocker.patch("pow_cli.core.initializer.Initializer.create_system_toml",
+                     return_value={"status": "Existed", "path": "system.toml"})
+        mocker.patch("pow_cli.core.initializer.Initializer.setup_omniverse_user_home_alias",
+                     return_value={"status": "unchanged", "path": "omniverse.toml"})
         self.mock_download = mocker.patch(
             "pow_cli.core.initializer.Initializer.download_isaacsim",
             return_value={"status": "Already installed", "path": "/tmp/isaacsim"}

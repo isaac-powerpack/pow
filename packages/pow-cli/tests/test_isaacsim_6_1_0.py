@@ -1,4 +1,4 @@
-"""CPU-only regression coverage for the 6.1 integration boundary."""
+"""CPU-only regression coverage for the Isaac Sim 6.1.0 integration boundary."""
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -96,8 +96,9 @@ def test_optional_distribution_must_match_selected_version(project, mocker):
     dist.locate_file.assert_not_called()
 
 
-def test_610_asset_set_info_unset_preserves_assets(project):
+def test_6_1_0_asset_set_info_unset_preserves_assets(project, monkeypatch):
     from pow_cli.core.asset_manager import AssetManager
+    monkeypatch.setattr(AssetManager, "OMNIVERSE_TOML_PATH", project / "omniverse.toml")
     (project / "pow.toml").write_text('[sim]\nversion = "6.1.0"\n')
     assets = project / "local-assets"
     assets.mkdir()
@@ -133,7 +134,7 @@ def test_image_inspect_failure_is_actionable(mocker, returncode, stdout):
         RosManager.validate_image("image", "6.1.0")
 
 
-def test_clone_610_uses_official_ref(project, mocker):
+def test_clone_6_1_0_uses_official_ref(project, mocker):
     cfg = PowConfig()
     ws = project / "new-workspace"
     run = mocker.patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout=PowConfig.release("6.1.0")["ros_ws_commit"]))
@@ -141,7 +142,7 @@ def test_clone_610_uses_official_ref(project, mocker):
     assert next(c.args[0] for c in run.call_args_list if c.args[0][:2] == ["git", "clone"]) == ["git", "clone", "-b", "IsaacSim-6.1.0", "--quiet", "https://github.com/isaac-sim/IsaacSim-ros_workspaces.git", str(ws)]
 
 
-def test_new_project_records_610(project, mocker):
+def test_new_project_records_6_1_0(project, mocker):
     (project / "pow.toml").unlink()
     mocker.patch.object(Initializer, "init_git")
     result = Initializer().create_pow_toml()

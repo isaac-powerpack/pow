@@ -148,7 +148,7 @@ class TestAssetVersionRuleIsOptional:
 
 
 @pytest.mark.parametrize("source", ["5.1", "6.0", "6.1"])
-def test_610_asset_fixes_are_explicit_and_idempotent(project, source):
+def test_6_1_0_asset_fixes_are_explicit_and_idempotent(project, source):
     usda = project(_ref(source), pow_toml='[sim]\nversion = "6.1.0"\n')
     original = usda.read_text()
     issues = lint_file(usda)

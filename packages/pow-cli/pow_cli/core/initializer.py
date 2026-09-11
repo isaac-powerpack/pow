@@ -5,6 +5,7 @@ import os
 import platform
 import shutil
 import subprocess
+import tempfile
 import zipfile
 import urllib.request
 from pathlib import Path
@@ -26,9 +27,17 @@ class Initializer:
     - setup isaacsim ros workspace
     """
 
-    def __init__(self):
-        """Initialize the Manager with default paths."""
+    GLOBAL_SUBFOLDERS = ("isaacsim", "modules", "projects", "sim-ros")
+
+    def __init__(self, global_path: Path | None = None):
+        """Optionally use a global path without loading project configuration."""
         self._config_instance = None
+        self._global_path = global_path
+
+    @property
+    def global_path(self) -> Path:
+        """Global setup location; an override never loads pow.toml."""
+        return self._global_path if self._global_path is not None else self.config.global_path
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -71,6 +80,8 @@ class Initializer:
 
     def _configured_version(self) -> str:
         """Isaac Sim version from pow.toml, or the default when unavailable."""
+        if self._global_path is not None:
+            return PowConfig.ISAACSIM_VERSION
         try:
             return self.config.get("version", PowConfig.ISAACSIM_VERSION)
         except Exception:
@@ -81,8 +92,11 @@ class Initializer:
     def get_config_path(self):
         """Return global configuration information for Step 1."""
         return {
-            "global_dir_name": self.config.global_dir_name,
-            "global_path": self.config.global_path,
+            "global_dir_name": (
+                self._global_path.name
+                if self._global_path is not None else self.config.global_dir_name
+            ),
+            "global_path": self.global_path,
         }
 
     def get_config(self) -> PowConfig:
@@ -101,7 +115,7 @@ class Initializer:
                      in pow.toml, then to :attr:`PowConfig.ISAACSIM_VERSION`.
         """
         managed = PowConfig.version_dir(
-            version or self._configured_version(), self.config.global_path
+            version or self._configured_version(), self.global_path
         )
         if managed.is_dir():
             return managed
@@ -125,40 +139,33 @@ class Initializer:
 
     def create_global_folder(self):
         """Create the global directories and return the created paths with status."""
-        subfolders = ["isaacsim", "modules", "projects", "sim-ros"]
-        global_path = self.config.global_path
-        global_dir_name = self.config.global_dir_name
+        global_path = self.global_path
+        global_dir_name = self.get_config_path()["global_dir_name"]
 
-        global_exists = global_path.exists()
+        global_exists = global_path.is_dir()
         if not global_exists:
             global_path.mkdir(parents=True)
 
         results = []
-        for sub in subfolders:
+        for sub in self.GLOBAL_SUBFOLDERS:
             sub_path = global_path / sub
-            existed = sub_path.exists()
-
-            if global_exists:
-                # Skip creation if global folder already exists
-                results.append({
-                    "path": f"{global_dir_name}/{sub}",
-                    "status": "Existed" if existed else "Skipped",
-                })
-            else:
-                # Create sub-folder when global folder is freshly created
+            existed = sub_path.is_dir()
+            if not existed:
                 sub_path.mkdir(parents=True, exist_ok=True)
-                results.append({
-                    "path": f"{global_dir_name}/{sub}",
-                    "status": "Created",
-                })
+            results.append({
+                "path": f"{global_dir_name}/{sub}",
+                "status": "Existed" if existed else "Created",
+            })
 
         return {"global_existed": global_exists, "results": results}
 
     def create_system_toml(self) -> dict:
         """Create system.toml in the global folder if it does not already exist."""
-        system_toml_path = self.config.global_path / "system.toml"
-        if system_toml_path.exists():
+        system_toml_path = self.global_path / "system.toml"
+        if system_toml_path.is_file():
             return {"status": "Existed", "path": str(system_toml_path)}
+        if system_toml_path.exists() or system_toml_path.is_symlink():
+            raise RuntimeError(f"Expected a configuration file at {system_toml_path}.")
 
         system_config = SystemConfig.default()
         doc = tomlkit.document()
@@ -181,21 +188,34 @@ class Initializer:
         """Read configuration from an existing pow.toml file using the PowConfig singleton."""
         return self.config.data
 
-    def fix_asset_browser_cache(self, isaacsim_path) -> bool:
-        """Fix the Isaac Sim asset browser cache issue."""
-        cache_path = (
+    @staticmethod
+    def asset_browser_cache_path(isaacsim_path: Path) -> Path:
+        return (
             Path(isaacsim_path)
             / "exts"
             / "isaacsim.asset.browser"
             / "cache"
             / "isaacsim.asset.browser.cache.json"
         )
+
+    def fix_asset_browser_cache(self, isaacsim_path) -> bool:
+        """Create the missing asset browser cache, preserving existing files."""
+        cache_path = self.asset_browser_cache_path(isaacsim_path)
+        if cache_path.is_file():
+            return False
+        if cache_path.exists() or cache_path.is_symlink():
+            raise RuntimeError(f"Expected an asset browser cache file at {cache_path}.")
         cache_path.parent.mkdir(parents=True, exist_ok=True)
-        if not cache_path.exists():
-            with open(cache_path, "w") as f:
-                json.dump({}, f, indent=4)
-            return True
-        return False
+        with open(cache_path, "x") as f:
+            json.dump({}, f, indent=4)
+        return True
+
+    @staticmethod
+    def isaacsim_ready(isaacsim_path: Path, *, check: bool = False) -> bool:
+        """Check the entry points needed by the requested sim command."""
+        return (isaacsim_path / "isaac-sim.sh").is_file() and (
+            not check or (isaacsim_path / "isaac-sim.compatibility_check.sh").is_file()
+        )
 
     def download_isaacsim(
         self,
@@ -203,6 +223,8 @@ class Initializer:
         progress_callback=None,
         status_callback=None,
         mock=False,
+        *,
+        check: bool = False,
     ):
         """Download and install Isaac Sim.
 
@@ -210,26 +232,64 @@ class Initializer:
             version: Version to install.  Must be one of
                      :attr:`PowConfig.SUPPORTED_ISAACSIM_VERSIONS`; defaults to
                      :attr:`PowConfig.ISAACSIM_VERSION`.
+            check: Also require the compatibility check script.
+
+        Incomplete installations are backed up outside the installed-version
+        scan. A failed or interrupted repair restores the original contents.
         """
         self._check_platform()
 
         version = version or PowConfig.ISAACSIM_VERSION
-        release = PowConfig.release(version)
-
-        dest_dir = self.config.global_path / "isaacsim"
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        zip_path = dest_dir / release["filename"]
-        target_folder = PowConfig.version_dir(version, self.config.global_path)
-
-        if not mock and target_folder.exists():
+        target_folder = PowConfig.version_dir(version, self.global_path)
+        if not mock and self.isaacsim_ready(target_folder, check=check):
             return {"status": "Already installed", "path": str(target_folder), "version": version}
 
+        release = PowConfig.release(version)
+
+        dest_dir = self.global_path / "isaacsim"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        zip_path = dest_dir / release["filename"]
         self._download_isaacsim_zip(
             release["url"], zip_path, progress_callback, status_callback, mock
         )
-        self._extract_isaacsim_zip(zip_path, target_folder, progress_callback, status_callback, mock)
 
-        return {"status": "Downloaded and installed", "path": str(target_folder), "version": version}
+        backup = None
+        if not mock and (target_folder.exists() or target_folder.is_symlink()):
+            backups = self.global_path / "isaacsim-backups"
+            backups.mkdir(parents=True, exist_ok=True)
+            backup = Path(tempfile.mkdtemp(prefix=f"{version}-", dir=backups)) / version
+            try:
+                target_folder.rename(backup)
+            except BaseException:
+                backup.parent.rmdir()
+                raise
+
+        try:
+            self._extract_isaacsim_zip(
+                zip_path, target_folder, progress_callback, status_callback, mock
+            )
+            if not mock and not self.isaacsim_ready(target_folder, check=check):
+                raise RuntimeError(
+                    f"Isaac Sim installation at {target_folder} is missing required scripts."
+                )
+        except BaseException:
+            # Only remove this attempt's extraction; the original is in backup.
+            if not mock:
+                if target_folder.is_symlink() or target_folder.is_file():
+                    target_folder.unlink()
+                elif target_folder.exists():
+                    shutil.rmtree(target_folder)
+                if backup is not None:
+                    backup.rename(target_folder)
+                    backup.parent.rmdir()
+            raise
+
+        result = {
+            "status": "Downloaded and installed", "path": str(target_folder), "version": version,
+        }
+        if backup is not None:
+            result["backup"] = str(backup)
+        return result
 
     def setup_project_structure(self, local_folders: list) -> dict:
         """Create project folders and .gitignore from template."""
@@ -266,7 +326,7 @@ class Initializer:
         have put there deliberately - and is reported as an error instead.
         """
         version = version or self._configured_version()
-        global_isaacsim = PowConfig.version_dir(version, self.config.global_path)
+        global_isaacsim = PowConfig.version_dir(version, self.global_path)
 
         if not global_isaacsim.is_dir():
             return {"status": "Error", "message": f"Global Isaac Sim {version} not found."}
@@ -671,4 +731,3 @@ class Initializer:
         config_path.write_text(tomlkit.dumps(doc))
 
         return {"status": status, "path": str(config_path)}
-

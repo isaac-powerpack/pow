@@ -5,6 +5,13 @@ from pow_cli.cli.sim import sim_group
 from pow_cli.core.models.pow_config import PowConfig
 
 
+@pytest.fixture(autouse=True)
+def skip_setup(mocker):
+    """Argument-routing tests; real prerequisite setup is covered separately."""
+    mocker.patch.object(PowConfig, "configured_default_version", return_value="")
+    return mocker.patch("pow_cli.cli.sim._ensure_sim_ready")
+
+
 @pytest.mark.cli
 class TestSim:
     """`pow sim` forwards raw args and bridge selection to Runner.run_sim."""
@@ -93,12 +100,13 @@ class TestSim:
             version="5.1.0", ros_bridge="jazzy", extra_args=["--no-window"]
         )
 
-    def test_help_lists_subcommands(self):
+    def test_help_lists_subcommands(self, skip_setup):
         result = self._invoke(["--help"])
         assert result.exit_code == 0
         assert "launch" in result.output
         assert "check" in result.output
         self.mock_run.assert_not_called()
+        skip_setup.assert_not_called()
 
     def test_help_lists_launch_options(self, mocker):
         """Bare `pow sim` accepts launch's options, so its help must show them."""
@@ -200,17 +208,16 @@ class TestSimDefaultVersion:
         assert self.mock_run.call_args.kwargs["version"] == "6.0.1"
         assert "system.toml pins" not in result.output
 
-    def test_pin_that_is_not_installed_warns_and_falls_back(self):
-        self._pin("9.9.9", ["6.0.1"])
+    def test_missing_pin_is_passed_to_setup_without_falling_back(self, skip_setup):
+        self._pin("5.1.0", ["6.0.1"])
 
         result = self._invoke([])
         assert result.exit_code == 0
-        assert self.mock_run.call_args.kwargs["version"] == "6.0.1"
-        assert "9.9.9" in result.output
-        assert "6.0.1" in result.output
+        assert self.mock_run.call_args.kwargs["version"] == "5.1.0"
+        skip_setup.assert_called_once_with("5.1.0", check=False)
 
     def test_pin_is_honored_when_nothing_is_installed(self):
-        """The Runner's own 'not found' error should name the pinned version."""
+        """First use installs the pin rather than selecting another version."""
         self._pin("5.1.0", [])
 
         result = self._invoke([])

@@ -1,109 +1,140 @@
-import sys
+import shutil
+import zipfile
+from pathlib import Path
 
 import click
 import pytest
-from unittest.mock import MagicMock
-from pathlib import Path
-
-# Add the package to sys.path
-sys.path.append(str(Path(__file__).parent.parent))
 
 from pow_cli.core.initializer import Initializer
+from pow_cli.core.models.pow_config import PowConfig
 
-class TestIsaacSimDownload:
-    @pytest.fixture(autouse=True)
-    def setup_manager(self, mocker):
-        self.initializer = Initializer()
-        self.mock_distro_id = mocker.patch("distro.id", return_value="ubuntu")
-        self.mock_distro_version = mocker.patch("distro.version", return_value="22.04")
-        self.mock_distro_name = mocker.patch("distro.name", return_value="Ubuntu")
 
-    def test_architecture_check_failure(self, mocker):
-        mocker.patch("platform.machine", return_value="arm64")
-        with pytest.raises(RuntimeError, match="Unsupported architecture: arm64"):
-            self.initializer.download_isaacsim()
+@pytest.fixture
+def initializer(tmp_path, mocker):
+    mocker.patch("platform.machine", return_value="x86_64")
+    mocker.patch("platform.system", return_value="Linux")
+    mocker.patch("distro.id", return_value="ubuntu")
+    mocker.patch("distro.version", return_value="22.04")
+    return Initializer(global_path=tmp_path / ".pow")
 
-    def test_os_check_failure(self, mocker):
-        mocker.patch("platform.machine", return_value="x86_64")
-        mocker.patch("platform.system", return_value="Linux")
-        
-        self.mock_distro_id.return_value = "ubuntu"
-        self.mock_distro_version.return_value = "20.04"
-        self.mock_distro_name.return_value = "Ubuntu"
-        
-        expected_msg = "Unsupported OS: Ubuntu 20.04. Isaac Sim requires Ubuntu 22.04 or 24.04."
-        with pytest.raises(RuntimeError, match=expected_msg):
-            self.initializer.download_isaacsim()
 
-    @pytest.mark.parametrize(
-        "version,expected_host",
-        [
-            ("5.1.0", "https://download.isaacsim.omniverse.nvidia.com/"),
-            ("6.0.1", "https://downloads.isaacsim.nvidia.com/"),
-        ],
-    )
-    def test_successful_flow_mocked(self, mocker, version, expected_host):
-        mocker.patch("platform.machine", return_value="x86_64")
-        mocker.patch("platform.system", return_value="Linux")
+@pytest.fixture
+def archive_download(tmp_path, mocker):
+    archive = tmp_path / "source.zip"
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.writestr("isaac-sim.sh", "#!/bin/sh\n")
+        bundle.writestr("isaac-sim.compatibility_check.sh", "#!/bin/sh\n")
 
-        self.mock_distro_id.return_value = "ubuntu"
-        self.mock_distro_version.return_value = "22.04"
-        self.mock_distro_name.return_value = "Ubuntu"
+    def retrieve(url, dest, reporthook):
+        shutil.copyfile(archive, dest)
+        reporthook(1, archive.stat().st_size, archive.stat().st_size)
 
-        mock_urlretrieve = mocker.patch("pow_cli.core.initializer.urllib.request.urlretrieve")
-        mock_zip = mocker.patch("pow_cli.core.initializer.zipfile.ZipFile")
-        mocker.patch("pow_cli.core.initializer.Path.mkdir")
-        mock_exists = mocker.patch("pow_cli.core.initializer.Path.exists")
-        mocker.patch("pow_cli.core.initializer.Path.rename")
-        mocker.patch("pow_cli.core.initializer.Path.unlink")
-        mocker.patch("pow_cli.core.initializer.os.replace")
-        mocker.patch.object(Initializer, "_fix_isaacsim_permissions")
+    return mocker.patch("urllib.request.urlretrieve", side_effect=retrieve)
 
-        # Robust exists side effect using captured arguments
-        def exists_side_effect(*args, **kwargs):
-            if not args:
-                return False
-            path_obj = args[0]
-            path_str = str(path_obj)
 
-            # Check for the target folder: global_path / "isaacsim" / <version>
-            if path_str.endswith(f"/{version}"):
-                return False
+def test_architecture_check_failure(initializer, mocker):
+    mocker.patch("platform.machine", return_value="arm64")
+    with pytest.raises(RuntimeError, match="Unsupported architecture: arm64"):
+        initializer.download_isaacsim()
 
-            # A ".part" file must never be mistaken for a finished download
-            if path_str.endswith(".part"):
-                return False
 
-            # Check for the zip file: global_path / "isaacsim" / "isaac-sim-standalone-<version>-linux-x86_64.zip"
-            if path_str.endswith(".zip"):
-                return True
+def test_os_check_failure(initializer, mocker):
+    mocker.patch("distro.version", return_value="20.04")
+    mocker.patch("distro.name", return_value="Ubuntu")
+    with pytest.raises(RuntimeError, match="Unsupported OS: Ubuntu 20.04"):
+        initializer.download_isaacsim()
 
-            # Check for the extracted folder: global_path / "isaacsim" / "isaac-sim-standalone-<version>"
-            if f"isaac-sim-standalone-{version}" in path_str:
-                return True
 
-            return False
+@pytest.mark.parametrize(
+    "version,expected_host",
+    [
+        ("5.1.0", "https://download.isaacsim.omniverse.nvidia.com/"),
+        ("6.0.1", "https://downloads.isaacsim.nvidia.com/"),
+    ],
+)
+def test_download_extracts_required_scripts(initializer, archive_download, version, expected_host):
+    result = initializer.download_isaacsim(version=version, check=True)
 
-        mock_exists.side_effect = exists_side_effect
+    assert result["status"] == "Downloaded and installed"
+    assert result["version"] == version
+    archive_download.assert_called_once()
+    url, destination, _ = archive_download.call_args.args
+    assert url == f"{expected_host}isaac-sim-standalone-{version}-linux-x86_64.zip"
+    assert str(destination).endswith(".part")
+    assert not Path(destination).exists()
+    install = Path(result["path"])
+    assert Initializer.isaacsim_ready(install, check=True)
+    assert (install / "isaac-sim.sh").stat().st_mode & 0o111
 
-        mock_zip_instance = MagicMock()
-        mock_zip_instance.namelist.return_value = [f"isaac-sim-standalone-{version}/"]
-        mock_zip.return_value.__enter__.return_value = mock_zip_instance
+    assert initializer.download_isaacsim(version=version)["status"] == "Already installed"
+    archive_download.assert_called_once()
 
-        result = self.initializer.download_isaacsim(version=version)
 
-        assert result["status"] == "Downloaded and installed"
-        assert result["version"] == version
-        mock_urlretrieve.assert_called_once()
-        # Each release has its own download host - deriving the URL from the
-        # version string would silently 404 on 6.0.1.
-        url = mock_urlretrieve.call_args[0][0]
-        assert url == f"{expected_host}isaac-sim-standalone-{version}-linux-x86_64.zip"
-        # Downloads land on a .part file and are renamed once complete.
-        assert str(mock_urlretrieve.call_args[0][1]).endswith(".part")
-        mock_zip_instance.extractall.assert_not_called() # It uses .extract() now in a loop
+def test_unknown_version_is_rejected(initializer):
+    with pytest.raises(click.ClickException, match="Unsupported Isaac Sim version"):
+        initializer.download_isaacsim(version="9.9.9")
 
-    def test_unknown_version_is_rejected(self):
-        """An unlisted version must never be turned into a download URL."""
-        with pytest.raises(click.ClickException, match="Unsupported Isaac Sim version"):
-            self.initializer.download_isaacsim(version="9.9.9")
+
+def test_incomplete_install_is_backed_up(initializer, archive_download):
+    install = PowConfig.version_dir(PowConfig.ISAACSIM_VERSION, initializer.global_path)
+    install.mkdir(parents=True)
+    (install / "user.txt").write_text("original")
+
+    result = initializer.download_isaacsim(check=True)
+
+    assert Initializer.isaacsim_ready(install, check=True)
+    assert (Path(result["backup"]) / "user.txt").read_text() == "original"
+    assert PowConfig.installed_versions(initializer.global_path) == [PowConfig.ISAACSIM_VERSION]
+
+
+@pytest.mark.parametrize("failure", ["download", "extraction", "validation", "post-install", "interrupt"])
+def test_failed_repair_restores_original(initializer, archive_download, mocker, tmp_path, failure):
+    install = PowConfig.version_dir(PowConfig.ISAACSIM_VERSION, initializer.global_path)
+    install.mkdir(parents=True)
+    original = {"isaac-sim.sh": "old launcher", "user.txt": "original"}
+    for name, content in original.items():
+        (install / name).write_text(content)
+
+    error_type = RuntimeError
+    if failure == "download":
+        archive_download.side_effect = OSError("network failed")
+    elif failure == "post-install":
+        # Exercise the real extractor's post_install.sh failure cleanup.
+        with zipfile.ZipFile(tmp_path / "source.zip", "a") as bundle:
+            bundle.writestr("post_install.sh", "#!/bin/sh\n")
+        mocker.patch("subprocess.run", side_effect=RuntimeError("post-install failed"))
+    else:
+        def extract(zip_path, target, *args):
+            target.mkdir(parents=True)
+            (target / "partial.txt").write_text("partial extraction")
+            if failure == "interrupt":
+                raise KeyboardInterrupt()
+            if failure == "extraction":
+                raise RuntimeError("extraction failed")
+            # Returning without scripts also fails readiness validation.
+        mocker.patch.object(initializer, "_extract_isaacsim_zip", side_effect=extract)
+        if failure == "interrupt":
+            error_type = KeyboardInterrupt
+
+    with pytest.raises(error_type):
+        initializer.download_isaacsim(check=True)
+
+    assert {p.name: p.read_text() for p in install.iterdir()} == original
+    backups = initializer.global_path / "isaacsim-backups"
+    assert not backups.exists() or not list(backups.iterdir())
+
+
+def test_repair_of_symlink_preserves_its_target(initializer, archive_download, tmp_path):
+    external = tmp_path / "external"
+    external.mkdir()
+    (external / "user.txt").write_text("original")
+    install = PowConfig.version_dir(PowConfig.ISAACSIM_VERSION, initializer.global_path)
+    install.parent.mkdir(parents=True)
+    install.symlink_to(external, target_is_directory=True)
+
+    result = initializer.download_isaacsim()
+
+    assert Initializer.isaacsim_ready(install)
+    assert not install.is_symlink()
+    assert Path(result["backup"]).resolve() == external
+    assert (external / "user.txt").read_text() == "original"

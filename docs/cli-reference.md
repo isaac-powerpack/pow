@@ -10,7 +10,7 @@ This interactive command walks through a 10-step setup:
 
 1. Validates the project directory (requires `pyproject.toml`)
 2. Checks for existing `pow.toml` configuration, offering to update it in place
-3. Creates the `.pow` global folder if it's not exists
+3. Creates the `.pow` global folder, any missing subfolders, and `system.toml`
 4. Selects the Isaac Sim version, then downloads and installs it in `.pow/isaacsim/<version>`
 5. Applies post-install optimizations
 6. Sets up ROS integration (optional — builds Docker images). The workspace path prompt supports shell-style <kbd>Tab</kbd> completion: unique directories complete inline, ambiguous prefixes list candidates, and `~` is preserved
@@ -116,11 +116,12 @@ Run Isaac Sim from **any** directory. Unlike `pow run`, this command needs no pr
 
 Use it to open Isaac Sim outside a project — inspecting a stray USD file, or sanity-checking the installation.
 
-Without `-v` the version is resolved in this order:
+The version is resolved in this order:
 
 1. the `-v`/`--version` option;
 2. `[sim] default_version` in `~/.pow/system.toml`, when set;
-3. the newest release installed under `.pow/isaacsim/` (the sole installation when there is one).
+3. the newest release installed under `.pow/isaacsim/` (the sole installation when there is one);
+4. the latest release supported by the installed pow CLI when nothing is installed.
 
 Pin a default when several versions are installed by editing `~/.pow/system.toml`:
 
@@ -129,9 +130,15 @@ Pin a default when several versions are installed by editing `~/.pow/system.toml
 default_version = "5.1.0"
 ```
 
-If the pinned version is not installed, `pow sim` prints a warning and falls back to the newest installed one. See [Configuration](configuration.md#global-settings-powsystemtoml).
+If the pinned version is missing, `pow sim` installs it automatically before running. Downloads are limited to releases supported by the installed pow CLI; other versions can still run when already installed. See [Configuration](configuration.md#global-settings-powsystemtoml).
 
 `pow sim` is a command group whose default subcommand is `launch`: bare `pow sim [args...]` and `pow sim launch [args...]` are equivalent.
+
+Before launch or compatibility checking, pow completes the global setup from init steps 1, 3, 4, and 5: it resolves the global directory, creates missing global folders and `system.toml`, installs the selected Isaac Sim version if needed, and creates the missing asset-browser cache. This runs automatically without prompts. A ready installation produces no additional setup output, and a setup failure stops the command with a nonzero exit code.
+
+These commands work without `pyproject.toml` and ignore `pow.toml`. An optional `[tool.pow-cli] global_dir_name` in a `pyproject.toml` above the current directory still selects the global directory. Existing global settings and cache files are preserved. No project structure, ROS workspace, or editor configuration is created.
+
+An installation must contain `isaac-sim.sh`; `pow sim check` also requires `isaac-sim.compatibility_check.sh`. Incomplete installations are repaired, with their original contents kept under `<global>/isaacsim-backups/` and the backup location printed. A failed repair restores the original installation.
 
 ```bash
 # Launch the installed version with the jazzy ROS 2 bridge
@@ -155,7 +162,7 @@ pow sim launch -- --no-window
 
 | Option              | Description                                                  |
 | :------------------ | :----------------------------------------------------------- |
-| `-v`, `--version`   | Isaac Sim version to run (default: `[sim] default_version` in `system.toml`, else the installed version) |
+| `-v`, `--version`   | Isaac Sim version to run (default: `system.toml`, else newest installed, else latest supported) |
 | `--ros`             | ROS 2 bridge distro: `jazzy` (default) or `humble`           |
 | `--no-ros`          | Launch without the ROS 2 bridge environment; wins over `--ros` |
 
@@ -166,7 +173,7 @@ pow sim launch -- --no-window
 
 ### `pow sim check`
 
-Run the Isaac Sim compatibility check to verify your system meets the requirements. It runs `.pow/isaacsim/<version>/isaac-sim.compatibility_check.sh` from the installation managed by `pow init`, so it needs no project. The version is resolved exactly as for `pow sim` above.
+Run the Isaac Sim compatibility check to verify your system meets the requirements. It runs `.pow/isaacsim/<version>/isaac-sim.compatibility_check.sh` from the managed installation and needs no project. Version selection and automatic prerequisite setup follow `pow sim` above.
 
 ```bash
 # Check the installed version
@@ -181,7 +188,7 @@ pow sim check -- --no-ros-env
 
 | Option              | Description                                        |
 | :------------------ | :------------------------------------------------- |
-| `-v`, `--version`   | Isaac Sim version to check (default: `[sim] default_version` in `system.toml`, else the installed version) |
+| `-v`, `--version`   | Isaac Sim version to check (default: `system.toml`, else newest installed, else latest supported) |
 
 > [!NOTE]
 > `--ros` / `--no-ros` do not apply here: the check script sources its own ROS environment. Forward `-- --no-ros-env` to skip that step. Raw arguments after `--` go straight to the script.
