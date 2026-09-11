@@ -162,7 +162,7 @@ class TestInitCmdSimVersion:
             "pow_cli.cli.init.ask_choice", return_value=PowConfig.ISAACSIM_VERSION
         )
         # False answers both Confirms: keep any existing pow.toml, skip ROS.
-        mocker.patch("pow_cli.cli.init.Confirm.ask", return_value=False)
+        self.mock_confirm = mocker.patch("pow_cli.cli.init.Confirm.ask", return_value=False)
         mocker.patch(
             "pow_cli.core.initializer.Initializer.create_global_folder",
             return_value={"global_existed": True, "results": []},
@@ -197,8 +197,15 @@ class TestInitCmdSimVersion:
             autospec=True,
         )
 
-    def test_flag_selects_version_without_prompting(self, mocker):
-        self._no_pow_toml(mocker)
+    @pytest.mark.parametrize("update_settings", [None, False, True])
+    def test_flag_selects_version_without_prompting(self, mocker, update_settings):
+        if update_settings is None:
+            self._no_pow_toml(mocker)
+        else:
+            Path("pow.toml").write_text(
+                f'[sim]\nversion = "{PowConfig.ISAACSIM_VERSION}"\nenable_ros = false\n'
+            )
+            self.mock_confirm.return_value = update_settings
 
         result = self.runner.invoke(
             init_cmd, ["--sim-version", "5.1.0"], env={"NO_COLOR": "1", "TERM": "dumb"}
@@ -208,6 +215,7 @@ class TestInitCmdSimVersion:
         self.mock_prompt.assert_not_called()
         assert self.mock_download.call_args.kwargs["version"] == "5.1.0"
         assert self.mock_link.call_args.kwargs["version"] == "5.1.0"
+        assert self.mock_create_pow_toml.call_args.kwargs["override"] is True
         assert self.mock_create_pow_toml.call_args.kwargs["sim_version"] == "5.1.0"
 
     def test_vscode_configs_are_built_for_the_resolved_version(self, mocker):
@@ -288,6 +296,37 @@ class TestInitCmdSimVersion:
         assert result.exit_code == 0
         self.mock_prompt.assert_not_called()
         assert self.mock_download.call_args.kwargs["version"] == "5.1.0"
+
+    @pytest.mark.parametrize(
+        "config_version", [PowConfig.SUPPORTED_ISAACSIM_VERSIONS[-1], "9.9.9"]
+    )
+    def test_updating_existing_config_can_change_the_version(self, mocker, config_version):
+        pow_toml = Path("pow.toml")
+        original = (
+            '# project settings\n[sim]\n'
+            f'version = "{config_version}" # selected release\n'
+            'enable_ros = false\n'
+            'isaacsim_ros_ws = "~/IsaacSim-ros_workspaces"\n'
+            'exts = ["my.custom.ext"]\n'
+            '\n[[profiles]]\nname = "mine"\nheadless = true\n'
+        )
+        pow_toml.write_text(original)
+        self.mock_confirm.side_effect = [True, False]
+        selected_version = PowConfig.ISAACSIM_VERSION
+        self.mock_prompt.return_value = selected_version
+        mocker.stop(self.mock_create_pow_toml)
+        mocker.patch("pow_cli.core.initializer.Initializer.init_git")
+
+        result = self.runner.invoke(init_cmd, env={"NO_COLOR": "1", "TERM": "dumb"})
+
+        assert result.exit_code == 0, result.output
+        self.mock_prompt.assert_called_once()
+        assert self.mock_download.call_args.kwargs["version"] == selected_version
+        assert self.mock_link.call_args.kwargs["version"] == selected_version
+        assert self.mock_vscode.call_args.kwargs["version"] == selected_version
+        assert pow_toml.read_text() == original.replace(
+            f'version = "{config_version}"', f'version = "{selected_version}"'
+        )
 
     def test_picker_is_used_when_nothing_else_specifies_a_version(self, mocker):
         self._no_pow_toml(mocker)

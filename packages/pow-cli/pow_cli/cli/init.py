@@ -572,7 +572,8 @@ def init_cmd(sim_version: str | None):
 
     \b
     The Isaac Sim version comes from --sim-version, then from `[sim] version`
-    in an existing pow.toml, then from an interactive prompt (global default or latest).
+    in an existing pow.toml you choose to keep, then from an interactive prompt
+    (global default or latest).
     """
     initializer = Initializer()
     config = initializer.get_config_path()
@@ -601,7 +602,8 @@ def init_cmd(sim_version: str | None):
             if not override_pow_toml or sim_version is not None:
                 ros_forced = initializer.config.get("enable_ros", False)
                 ros_ws_forced = initializer.config.get("isaacsim_ros_ws", None)
-            version_forced = initializer.config.get("version", None)
+            if not override_pow_toml:
+                version_forced = initializer.config.get("version", None)
         except Exception:
             pass
 
